@@ -9,7 +9,7 @@ function Elbind(controller, parentElbind) {
     if (parentElbind) {
         this.parentElbind = parentElbind;
         this.nestedData = parentElbind.nestedData.slice();
-        //  Object.assign(this.nestedDataMap,parentElbind.nestedDataMap);
+        //  Object.assign(this.nestedDataMap,parentElbind.nestedDataMap); 
     }
 
 }
