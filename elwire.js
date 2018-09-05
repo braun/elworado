@@ -20,6 +20,8 @@ function Elbind(controller, parentElbind) {
 Elbind.prototype.attach = function (element) {
     element.elbind = this;
     this.element = element;
+    if(this.parentElbind != null)
+        this.parentElbind.addSub(element);
     return this;
 }
 
@@ -177,8 +179,8 @@ Elbind.prototype.wire = function()
                     var scope = this.scope;
                     var elbind = this;
                     function doaction(event) {
-                        var it = el.getAttribute("eliterator");
-                        if(it != null)
+                        var element = el;
+                        for(var it in elbind.nestedDataMap)
                             {
                                 var itv = elbind.nestedDataMap[it];
                                 eval("var "+it+" = itv");
@@ -199,12 +201,7 @@ Elbind.prototype.wire = function()
                     else
                      el.onclick = doaction;
                 }
-                //set id
-                var id = el.getAttribute("elid");
-                if(id != null)
-                {
-                    scope[id] = el;
-                }
+              
                
             }
             wireEl.bind(this)(el);
@@ -266,18 +263,28 @@ Elbind.prototype.buildPars = function(el,proto)
  * binds the controller data to DOM elements
  */
 Elbind.prototype.bind = function (rebuildScope) {
-
+    //this.scope._phase = "prepare";
+    if (!this.prepared)
+        this.prepare();
    
     if (this.scope == null || rebuildScope) {
         this.scope = this.parentElbind != null ? Object.create(this.parentElbind.scope) : {};
         this.scope.elbind = this;
+
+        for (var i = 0; i < this.bindEls.length; i++) {
+            var el = this.bindEls[i];
+            //set id
+            var id = el.getAttribute("elid");
+            if(id != null)
+            {
+                this.scope[id] = el;
+            }  
+        }
         this.scope._phase = "build";
         if (this.controller)
             this.controller(this.scope);
     }
-    this.scope._phase = "prepare";
-    if (!this.prepared)
-        this.prepare();
+   
 
     this.wire();
     this.scope._phase = "bind";
@@ -412,7 +419,10 @@ Elbind.prototype.bind = function (rebuildScope) {
        }
     
       
+       var scope =this.scope;
         var collection = this.scope[collectionFn];
+        if(collection == null)
+            collection = eval("scope."+collectionFn);
         if (collection == null) {
             console.error("Elbind collection getter not defined: " + collectionFn);
             continue;
@@ -464,8 +474,14 @@ Elbind.prototype.bind = function (rebuildScope) {
                 childElbind.addNestedData(iter, itemData);
             } else
                 toremove.removeElement(itemNode);
-          
-            itemNode.elbind.bind();
+            if(itemNode.parentNode == null)
+            {
+                if(itemData.ord != null)
+                collectionEl.originalParent.insertBefore(itemNode, collectionEl.originalParent.children[itemData.ord]);
+                else
+                    collectionEl.originalParent.appendChild(itemNode);
+                itemNode.elbind.bind();
+            }
         }
         toremove.forEach((node)=>
         {
@@ -495,7 +511,8 @@ Elbind.prototype.removeSub = function(sub)
 }
 Elbind.prototype.addSub= function(sub)
 {
-    this.subs.push(sub);
+    if(this.subs.indexOf(sub) == -1)
+        this.subs.push(sub);
 }
 Elbind.prototype.addNestedData = function (iter, nestedData) {
     this.nestedDataMap[iter] = nestedData;
@@ -526,6 +543,10 @@ Elbind.prototype.onUnmount = function()
 }
 Elbind.prototype.destroy = function()
 {
+    if(this.destroyed == true)
+        return;
+    
+    this.destroyed = true;
     if(this.scope.onDestroy != null)
     this.scope.onDestroy();
 
@@ -572,15 +593,15 @@ Elbind.forSelector = function (selector, parent,controller) {
     return Elbind.forElement( element,controller);
 }
 
-Elbind.forElement = function ( element,controller) {
+Elbind.forElement = function ( element,controller,parentElbind) {
     if (!element.elbind)
-        new Elbind(controller).attach(element);
+        new Elbind(controller,parentElbind).attach(element);
     else
         element.elbind.setController(controller);
     return element.elbind;
 }
 
-Elbind.forUrl = function (url,controller) {
+Elbind.forUrl = function (url,controller,parentElbind) {
     var rv = new Promise((resolve,reject)=>
     {
         httpGet(url,function(data)
@@ -588,10 +609,7 @@ Elbind.forUrl = function (url,controller) {
             var element = createElementFromHTML(data);
             if(controller == null)
                 controller = (scope)=>{};
-            if (!element.elbind)
-                new Elbind(controller).attach(element);
-            else
-                element.elbind.setController(controller);
+            Elbind.forElement(element,controller,parentElbind)
             resolve( element.elbind);
         })
     })
@@ -603,10 +621,17 @@ function ElApp(appController) {
     window.addEventListener('load', function () {
         this.attach(document.body);
         this.bind();
+        this.onResize();
     }.bind(this));
+    
+    window.addEventListener('resize',this.onResize.bind(this));
 
 }
-
+ElApp.prototype.onResize = function()
+{
+    if(this.scope.onResize)
+        this.scope.onResize();
+}
 Object.assign(ElApp.prototype, Elbind.prototype);
 
 ElApp.prototype.mount = function(name,opts)
