@@ -14,7 +14,6 @@ var httpGetCache = {}
  */
 var httpGet = function(url,callback,tryCache)
 {
-  
   if(tryCache)
   {
     if(httpGetCache.hasOwnProperty(url))

@@ -9,7 +9,7 @@ function Elbind(controller, parentElbind) {
     if (parentElbind) {
         this.parentElbind = parentElbind;
         this.nestedData = parentElbind.nestedData.slice();
-        //  Object.assign(this.nestedDataMap,parentElbind.nestedDataMap); 
+        //  Object.assign(this.nestedDataMap,parentElbind.nestedDataMap);
     }
 
 }
@@ -20,8 +20,6 @@ function Elbind(controller, parentElbind) {
 Elbind.prototype.attach = function (element) {
     element.elbind = this;
     this.element = element;
-    if(this.parentElbind != null)
-        this.parentElbind.addSub(element);
     return this;
 }
 
@@ -54,6 +52,13 @@ Elbind.prototype.prepare = function () {
       //  sub.parentNode.removeChild(sub);
 
     }
+    this.widgets = Array.prototype.slice.call(this.element.querySelectorAll("[elwidget]"));
+    for (var i = 0; i < this.widgets.length; i++) {
+        var sub = this.widgets[i];
+        sub.originalParent = sub.parentNode;
+      //  sub.parentNode.removeChild(sub);
+
+    }
 
     this.mounts = this.element.querySelectorAll("[elmount]");
     for (var i = 0; i < this.mounts.length; i++) {
@@ -67,6 +72,11 @@ Elbind.prototype.prepare = function () {
     {
        // if(this.element === el)
          //   return false;
+         for(var i = 0; i < this.widgets.length; i++)
+         {
+             if(this.widgets[i].contains(el))
+                 return true;
+         }
         for(var i = 0; i < this.subs.length; i++)
         {
             if(this.subs[i].contains(el))
@@ -290,6 +300,9 @@ Elbind.prototype.bind = function (rebuildScope) {
     this.scope._phase = "bind";
     if (Object.keys(this.nestedDataMap).length > 0)
         Object.assign(this.scope, this.nestedDataMap);
+
+    if(this.prepareData)
+        this.prepareData(this.scope);
   // bind own elements
   for (var i = 0; i < this.bindEls.length; i++) {
     var it = this.bindEls[i];
@@ -300,20 +313,23 @@ Elbind.prototype.bind = function (rebuildScope) {
         // bind  to model autowired element
         var model = it.getAttribute("elmodel");
         if (model != null) {
-            var scope = this.scope;
-            try {
-                var val = eval("scope." + model);
-                if (val == undefined)
-                    val = null;
-                // autowire (bidirectional) input
-                if (it.tagName == "INPUT" || it.tagName == "TEXTAREA") 
-                    it.value = val;                        
-                 else if(it.tagName == "IMG")
-                    it.src = val;
-                else
-                    it.innerHTML = val;
-            } catch (err) {
-                console.debug(err);
+            if(it.elbind == null)
+             { // dont set model on sub elbind (widget)
+                var scope = this.scope;
+                try {
+                    var val = eval("scope." + model);
+                    if (val == undefined)
+                        val = null;
+                    // autowire (bidirectional) input                
+                    if (it.tagName == "INPUT" || it.tagName == "TEXTAREA") 
+                        it.value = val;                        
+                    else if(it.tagName == "IMG")
+                        it.src = val;
+                    else
+                        it.innerHTML = val;
+                } catch (err) {
+                    console.debug(err);
+                }
             }
         }
 
@@ -396,12 +412,38 @@ Elbind.prototype.bind = function (rebuildScope) {
         if (subEl.elbind == null) {
             var scope = this.scope;
             var subc = subEl.getAttribute("elcontroller");
-            var controller = eval(subc);
+            var controller = subc == null ? function(scope){} : eval(subc);
             var childElbind = new Elbind(controller, this);
             childElbind.attach(subEl);
            // subEl.originalParent.appendChild(subEl);
         }
         subEl.elbind.bind();
+    }
+    // bind widgets
+    var scope = this.scope;
+    for (var i = 0; i < this.widgets.length; i++) {
+        var subEl = this.widgets[i];
+        function fn(subEl)
+        {
+            if (subEl.elbind == null) {
+               
+                var widgetid = subEl.getAttribute("elwidget");
+                var wtemplate = Elbind.widgets[widgetid];
+                if(wtemplate == null)
+                {
+                    console.error("widget with id: "+widgetid+" not found!");
+                    return;
+                }
+                var controller = wtemplate.controllerWrapper.bind(wtemplate);          
+                Elbind.forHtmlFromUrl(wtemplate.url,controller,this,subEl).then(childElbind=>{
+                    childElbind.bind();
+                })
+                        
+            // subEl.originalParent.appendChild(subEl);
+            } else
+             subEl.elbind.bind();
+        }
+        fn.bind(this)(subEl);
     }
     // bind collections
     for (var i = 0; i < this.collections.length; i++) {
@@ -417,7 +459,10 @@ Elbind.prototype.bind = function (rebuildScope) {
            if(node.isCollectionNode == true)
                toremove.push(node);
        }
-    
+       toremove.forEach((node)=>
+       {
+           collectionEl.originalParent.removeChild(node);
+       });
       
        var scope =this.scope;
         var collection = this.scope[collectionFn];
@@ -453,10 +498,14 @@ Elbind.prototype.bind = function (rebuildScope) {
         for (var j = 0; j < len; j++) {
             var itemData = collectionData[j];
 
-            if(itemData._elwireId == null)
-                itemData._elwireId = elwireKeySequence++;
-
-            var itemNode = collectionEl.itemMap[itemData._elwireId];
+            var elwid = itemData;
+            if(typeof itemData == "object")
+            {
+             if(itemData._elwireId == null)
+                    itemData._elwireId = elwireKeySequence++;
+                elwid = itemData._elwireId;
+            }
+            var itemNode = collectionEl.itemMap[elwid];
             
             if(itemNode == null)
             {
@@ -466,10 +515,7 @@ Elbind.prototype.bind = function (rebuildScope) {
                  collectionEl.itemMap[itemData._elwireId] = itemNode;
                 //itemData._itemEl = itemNode;
                 var childElbind = new Elbind(null, this);
-                if(itemData.ord != null)
-                 collectionEl.originalParent.insertBefore(itemNode, collectionEl.originalParent.children[itemData.ord]);
-                else
-                 collectionEl.originalParent.appendChild(itemNode);
+               
                 childElbind.attach(itemNode);           
                 childElbind.addNestedData(iter, itemData);
             } else
@@ -483,10 +529,7 @@ Elbind.prototype.bind = function (rebuildScope) {
                 itemNode.elbind.bind();
             }
         }
-        toremove.forEach((node)=>
-        {
-            collectionEl.originalParent.removeChild(node);
-        });
+       
 
         var after = collectionEl.getAttribute("elafter");
         if(after != null)
@@ -503,6 +546,65 @@ Elbind.prototype.bind = function (rebuildScope) {
 
 
     return this;
+}
+Elbind.prototype.updateModel = function(model,el,value)
+{
+    var scope = this.scope;
+        try {
+            if(scope.hasOwnProperty("_modelFunction"))
+            {
+                scope._modelFunction.apply(scope,this.buildPars(el,[value]));
+                return;
+            }
+
+            for(var it in this.nestedDataMap)
+            {
+                var itv = this.nestedDataMap[it];
+                eval("var "+it+" = itv");
+            }
+            eval( model+ " = "+value);
+            
+        }catch(err)
+        {
+            console.warn("cannot evaluate model:"+model,err.stack);
+           console.warn(err);
+        }
+    return
+}
+Elbind.prototype.evalModel = function(model,el)
+{
+    if(model == null)
+        return;
+  
+    var scope = this.scope;
+        try {
+            if(!scope.hasOwnProperty("_modelFunction"))
+            {
+                for(var it in this.nestedDataMap)
+                {
+                    var itv = this.nestedDataMap[it];
+                    eval("var "+it+" = itv");
+                }
+                var val = eval( model);
+
+                if (val == undefined)
+                    val = null;
+                else
+                    if(typeof val == "function")
+                    {
+                        scope._modelFunction = val;
+                        val = this.evalModel(model,el);
+                    }
+            }
+            else
+                val = scope._modelFunction.apply(scope,this.buildPars(el,[undefined]));
+            return val;
+        }catch(err)
+        {
+           // console.error("cannot evaluate model:"+model,err.stack);
+            console.warn(err);
+        }
+    return
 }
 
 Elbind.prototype.removeSub = function(sub)
@@ -539,7 +641,10 @@ Elbind.prototype.onUnmount = function()
         col.elbind.onUnmount();
     });
     this.element = null;
-    
+    this.widgets.forEach(sub=>
+        {
+            sub.elbind.onUnmount();
+        });
 }
 Elbind.prototype.destroy = function()
 {
@@ -554,6 +659,10 @@ Elbind.prototype.destroy = function()
     {
         sub.elbind.destroy();
     });
+    this.widgets.forEach(sub=>
+        {
+            sub.elbind.destroy();
+        });
     this.collections.forEach(col=>
     {
         for(key in col.itemMap)
@@ -569,6 +678,7 @@ Elbind.prototype.destroy = function()
     this.itemMap = null;
     this.scope.elbind = null;
     this.scope = null;
+    this.widgets = [];
     
 }
 Elbind.prototype.onMount = function()
@@ -577,6 +687,10 @@ Elbind.prototype.onMount = function()
         {
             sub.elbind.onMount();
         });
+        this.widgets.forEach(sub=>
+            {
+                sub.elbind.onMount();
+            });
         this.collections.forEach(col=>
         {
             col.elbind.onMount();
@@ -615,7 +729,42 @@ Elbind.forUrl = function (url,controller,parentElbind) {
     })
     return rv;
 }
+Elbind.forHtmlFromUrl = function (url,controller,parentElbind,parentElement) {
+    var rv = new Promise((resolve,reject)=>
+    {
+        httpGet(url,function(data)
+        {        
+           var originalInnerHtml = parentElement.innerHTML;
+            if(controller == null)
+                controller = (scope)=>{};
+            parentElement.innerHTML = data;
+            Elbind.forElement(parentElement,
+                function(scope)
+                {
+                    scope.originalInnerHtml = originalInnerHtml;
+                    controller(scope);
+                },parentElbind)
+            resolve( parentElement.elbind);
 
+        },true)
+    })
+    return rv;
+}
+Elbind.widgets = {};
+Elbind.registerWidget = function(id,opts)
+{
+    Elbind.widgets[id] = new ElWidget(opts);
+ 
+}
+Elbind.prototype.mount = function(name,opts)
+{
+    var mountE = this.element.querySelector('[elmount="'+name+'"]');
+    if(mountE.elmount == null)
+    {
+        mountE.elmount = new ElMount(mountE,this,opts);
+    }
+    return mountE.elmount;
+}
 function ElApp(appController) {
     Elbind.bind(this)(appController);
     window.addEventListener('load', function () {
@@ -634,15 +783,6 @@ ElApp.prototype.onResize = function()
 }
 Object.assign(ElApp.prototype, Elbind.prototype);
 
-ElApp.prototype.mount = function(name,opts)
-{
-    var mountE = this.element.querySelector('[elmount="'+name+'"]');
-    if(mountE.elmount == null)
-    {
-        mountE.elmount = new ElMount(mountE,this,opts);
-    }
-    return mountE.elmount;
-}
 
 function ElMount(element,app,opts)
 {
@@ -655,11 +795,14 @@ function ElMount(element,app,opts)
         this.opts = {};
 }
 
-ElMount.prototype.overlay= function(templateUrl,controller)
+ElMount.prototype.overlay = function(templateUrl,controller,parentElbind)
 {
+    var elmount = this;
    var promise = new Promise((resolve,reject)=>
     {
 
+    if(controller == null)
+        controller = function(scope) {};
 
         httpGet(templateUrl,function(text){
             var nodes = [];
@@ -673,7 +816,16 @@ ElMount.prototype.overlay= function(templateUrl,controller)
             if(controller == null)
                 controller = function(scope) {};
 
-            var elbind = new Elbind(controller,this.element.elbind != null ?  this.element.elbind.parentElbind : this.elapp);
+            if(parentElbind == null)
+                parentElbind = this.element.elbind != null ?  this.element.elbind.parentElbind : this.elapp
+            var elbind = new Elbind((scope)=>
+            {
+                scope.goBack = function()
+                {
+                    elmount.goBack();
+                }
+                controller(scope);
+            },parentElbind);
             elbind.attach(this.element);
             this.element.elbind.parentElbind.addSub( this.element);
             this.element.elbind.parentElbind.bind();
