@@ -810,11 +810,15 @@ Elbind.prototype.mount = function(name,opts)
 }
 function ElApp(appController) {
     Elbind.bind(this)(appController);
-    window.addEventListener('load', function () {
+    var initfn = function () {
         this.attach(document.body);
         this.bind();
         this.onResize();
-    }.bind(this));
+    }.bind(this);
+    if (document.readyState === 'complete')
+        initfn();
+    else 
+        window.addEventListener('load', initfn);
     
     window.addEventListener('resize',this.onResize.bind(this));
 
