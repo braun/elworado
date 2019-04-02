@@ -1,3 +1,4 @@
+var ElWidget = require("./elwidget").ElWidget;
 /**
  * simple DOM binding library
  */
@@ -45,7 +46,22 @@ Elbind.prototype.prepare = function () {
         return;
     this.prepared = true;
 
-    this.subs = Array.prototype.slice.call(this.element.querySelectorAll("[elcontroller]"));
+    var newsubs  = this.element.querySelectorAll("[elcontroller]");
+   this.subs = Array.prototype.slice.call(newsubs);
+    for (var i = 0; i < newsubs.length; i++) 
+        {
+            var possibleParent = newsubs[i];
+            for (var j = 0; j < newsubs.length; j++) {
+                var possibleSubSub = newsubs[j];
+                if(possibleParent !== possibleSubSub && possibleParent.contains(possibleSubSub))
+                    {
+                        var idx = this.subs.indexOf(possibleSubSub);
+                        if(idx > -1)
+                           this.subs.splice(idx,1);
+                    }
+                }
+        }
+    
     for (var i = 0; i < this.subs.length; i++) {
         var sub = this.subs[i];
         sub.originalParent = sub.parentNode;
@@ -134,6 +150,13 @@ Elbind.prototype.prepare = function () {
          this.bindEls.unshift(this.element);
 
 }
+
+
+Elbind.prototype.onInputChanged = function(el,model,value,event)
+{
+    
+    this.updateModel(el,model,value);
+}
  // wire (prepare) the elements
 Elbind.prototype.wire = function()
 {
@@ -158,24 +181,7 @@ Elbind.prototype.wire = function()
                           
                             el.addEventListener("input",function(event)
                             {
-                                var bidi = el.getAttribute("elbidi");
-                                var onchange = el.getAttribute("elchange");
-                                eval("scope." + model + "='" + event.target.value.replace("\n","") + "'");
-                                if(bidi != null)
-                                {
-                                    thiselbind.bind();
-                                }
-                                if(onchange!= null)
-                                {
-                                    var fn = scope[onchange];
-                                    if(fn == null)
-                                    {
-                                        console.error("Method: "+onchange+" not found in scope");
-                                        return;
-                                    }
-                                    var pars = thiselbind.buildPars(el,[event.target.value]);
-                                    fn.apply(scope,pars);
-                                }
+                                thiselbind.onInputChanged(el,model,event.target.value,event);
                             } );
                         }
                     } catch (err) {
@@ -348,7 +354,7 @@ Elbind.prototype.bind = function (rebuildScope) {
                 console.error(error.stack);
             }
         }
-        it.elbind = this;
+        it.enclosingElbind = this;
         var pars = [it];
 
         // eval bind parameter
@@ -434,7 +440,10 @@ Elbind.prototype.bind = function (rebuildScope) {
                     console.error("widget with id: "+widgetid+" not found!");
                     return;
                 }
-                var controller = wtemplate.controllerWrapper.bind(wtemplate);          
+                var controller = wtemplate.controllerWrapper.bind(wtemplate);     
+                if(wtemplate.url == null)     
+                    Elbind.forElement(subEl,controller,this).bind();            
+                else
                 Elbind.forHtmlFromUrl(wtemplate.url,controller,this,subEl).then(childElbind=>{
                     childElbind.bind();
                 })
@@ -547,23 +556,35 @@ Elbind.prototype.bind = function (rebuildScope) {
 
     return this;
 }
-Elbind.prototype.updateModel = function(model,el,value)
+Elbind.prototype.updateModel = function(el,model,value)
 {
     var scope = this.scope;
+    var thiselbind = this;
         try {
             if(scope.hasOwnProperty("_modelFunction"))
             {
                 scope._modelFunction.apply(scope,this.buildPars(el,[value]));
                 return;
             }
-
-            for(var it in this.nestedDataMap)
-            {
-                var itv = this.nestedDataMap[it];
-                eval("var "+it+" = itv");
-            }
-            eval( model+ " = "+value);
             
+            var bidi = el.getAttribute("elbidi");
+            var onchange = el.getAttribute("elchange");
+            eval("scope." + model + "='" + event.target.value.replace("\n","") + "'");
+            if(bidi != null)
+            {
+                thiselbind.bind();
+            }
+            if(onchange!= null)
+            {
+                var fn = scope[onchange];
+                if(fn == null)
+                {
+                    console.error("Method: "+onchange+" not found in scope");
+                    return;
+                }
+                var pars = thiselbind.buildPars(el,[event.target.value]);
+                fn.apply(scope,pars);
+            }
         }catch(err)
         {
             console.warn("cannot evaluate model:"+model,err.stack);
@@ -585,8 +606,17 @@ Elbind.prototype.evalModel = function(model,el)
                     var itv = this.nestedDataMap[it];
                     eval("var "+it+" = itv");
                 }
-                var val = eval( model);
-
+                var val = undefined;
+                try {
+                    val = eval( model);
+                }
+                catch(e){}
+                if (val == undefined)
+                try {
+                    val = eval("scope."+model);
+                }
+                catch(e){}
+             
                 if (val == undefined)
                     val = null;
                 else
@@ -750,6 +780,19 @@ Elbind.forHtmlFromUrl = function (url,controller,parentElbind,parentElement) {
     })
     return rv;
 }
+
+
+Elbind.prototype.validate = function(protocol)
+{
+    if(protocol == null)
+        protocol = [];
+    this.subs.forEach(form=>
+        {
+           form.elbind.validate(protocol);
+        })
+        return protocol;
+}
+
 Elbind.widgets = {};
 Elbind.registerWidget = function(id,opts)
 {
@@ -862,3 +905,7 @@ ElMount.prototype.goBack= function()
     if(this.opts.onMount != null)
       this.opts.onMount.bind(this)(elbind);
 }
+
+module.exports.Elbind = Elbind;
+module.exports.ElApp = ElApp;
+module.exports.ElMount = ElMount;
