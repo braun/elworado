@@ -24,9 +24,9 @@ ElWidget.prototype.controllerWrapper = function(scope)
         var val = this.evalModel(scope._modelTemplate,scope.elbind.element);
         scope.setModel(val);       
     }
-    scope.updateModel = function(val)
+    scope.updateModel = function(val,more)
     {
-        scope.elbind.updateModel(scope.elbind.element, scope._modelTemplate,val);
+        scope.elbind.updateModel(scope.elbind.element, scope._modelTemplate,val,more);
         scope.elbind.bind();
     }
     this.controller(scope);
@@ -75,10 +75,12 @@ function registerStdWidgets()
             {                
                     scope.checked = val == true;           
                     var element = this.elbind.element;
-                    element.addEventListener("change",(event)=>
+                    function onChange(event)
                     {
                         scope.doUpdateModel();
-                    });
+                    }
+                    element.removeEventListener("change",onChange)
+                    element.addEventListener("change",onChange);
                     var listname = element.getAttribute("elcodebook");
                     httpGet(listname,(list)=>
                     {
@@ -88,7 +90,7 @@ function registerStdWidgets()
                             element.removeChild(element.firstChild);
                     
                             scope.list = JSON.parse(list);
-                            
+                            scope.map = {};
                     scope.list.forEach(item=>
                         {
                         ///    if(scope.listMap != null)
@@ -96,6 +98,8 @@ function registerStdWidgets()
                             var option = document.createElement("option");
                             option.value = item.value;
                             option.innerHTML = item.name;
+
+                            scope.map[item.value] = item;
                             if(val == item.value)
                                 option.selected = "true";
                             
@@ -108,7 +112,8 @@ function registerStdWidgets()
             {
                 var e = this.elbind.element;
                 var selval = e.options[e.selectedIndex].value;
-                scope.updateModel(selval);
+                var item = scope.map[selval];
+                scope.updateModel(selval,item);
             }
             //scope.elbind.aaa = scope.elbind.element.aaa = counter++;
          

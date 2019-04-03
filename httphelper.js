@@ -64,3 +64,5 @@ var httpGet = function(url,callback,tryCache)
     }
     return xhr;
   }
+
+  window.httpGet = httpGet;

@@ -1,0 +1,85 @@
+.layout-compass
+{
+    display: grid;
+    grid-template-columns: max-content auto max-content;
+    grid-template-rows: min-content auto min-content;
+    grid-template-areas: 
+      "west north east"
+      "west center east"
+      "west south east";
+    .north
+    {
+       grid-area: north;
+    }
+    .south
+    {
+       grid-area: south;
+    }
+    .east
+    {
+       grid-area: east;
+    }
+    .west
+    {
+       grid-area: west;
+    }
+    .center
+    {
+        grid-area: center;
+    }
+}
+
+.layout-flow-horizontal
+{
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    
+}
+.layout-flow-vertical
+{
+    display: flex;
+    flex-flow: column wrap;
+
+    
+}
+.layout-flow-orientation
+{
+    @media screen and (orientation: landscape)
+    {
+     flex-flow: row;
+    };
+
+    display: flex;
+    flex-flow: column;
+    justify-content: space-around;
+  
+    flex-grow: 1;
+  
+  
+}
+layout-flow-orientation-inv
+{
+    @media screen and (orientation: landscape)
+    {
+     flex-flow: column;
+    };
+
+    display: flex;
+    flex-flow: row;
+    justify-content: stretch;
+  
+    flex-grow: 1;
+  
+   
+}
+
+.layout-overall
+{
+    position:absolute;
+    top:0;
+    left:0;
+    bottom: 0;
+    right: 0;
+    background: rgba(0,0,0,0.9);
+}

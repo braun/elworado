@@ -1,10 +1,12 @@
 var howler = require("howler");
 var soundQueue = [];
-function playSound(sound)
+function playSound(sound,volume)
 {
-    var sound = new window.howler.Howl({
+    if(volume == null)
+    volume = 1.5;
+    var sound = new howler.Howl({
         src: [sound],
-        volume: 1.5,
+        volume: volume,
         onend: ()=>
         {
             soundQueue.shift();

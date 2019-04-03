@@ -293,6 +293,17 @@ Elbind.prototype.bind = function (rebuildScope) {
             var id = el.getAttribute("elid");
             if(id != null)
             {
+                el.id = id;
+                this.scope[id] = el;
+            }  
+        }
+        for (var i = 0; i < this.subs.length; i++) {
+            var el = this.subs[i];
+            //set id
+            var id = el.getAttribute("elid");
+            if(id != null)
+            {
+                el.id = id;
                 this.scope[id] = el;
             }  
         }
@@ -556,14 +567,14 @@ Elbind.prototype.bind = function (rebuildScope) {
 
     return this;
 }
-Elbind.prototype.updateModel = function(el,model,value)
+Elbind.prototype.updateModel = function(el,model,value,more)
 {
     var scope = this.scope;
     var thiselbind = this;
         try {
             if(scope.hasOwnProperty("_modelFunction"))
             {
-                scope._modelFunction.apply(scope,this.buildPars(el,[value]));
+                scope._modelFunction.apply(scope,this.buildPars(el,[value,more]));
                 return;
             }
             
@@ -823,6 +834,10 @@ function ElApp(appController) {
     window.addEventListener('resize',this.onResize.bind(this));
 
 }
+
+var elem = document.documentElement;
+
+
 ElApp.prototype.onResize = function()
 {
     if(this.scope.onResize)
