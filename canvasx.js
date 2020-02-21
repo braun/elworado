@@ -33,6 +33,54 @@ CanvasX.prototype.draw = function (callback) {
 CanvasX.prototype.clear = function () {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 }
+/**
+ * Draw canvas content onto other canvas
+ * @param {Canvas} source
+ * @param {canvasxCallback} callback callback to be called on completion
+ * @param {number=} x  x coord of canvas where the canvas content should be placed, default 0
+ * @param {number=} y  y coord of canvas where the canvas content should be placed, default 0
+ * @param {number=} width width of canvas portion, canvas contentwill be placed onto, default canvas width - x
+ * @param {number=} height height of canvas portion, canvas will be placed onto,default canvas width - y
+ */
+CanvasX.prototype.drawCanvas = function(source,callback, x, y, width, height)
+{
+    if (x === undefined)
+            x = 0;
+    if (y === undefined)
+        y = 0;
+    if (width === undefined)
+        width = this.canvas.width - x;
+    if (height === undefined)
+        height = this.canvas.height - y;
+    
+    var src = source instanceof CanvasX ? source.canvas : source;
+    this.ctx.drawImage(src,x,y,width,height);
+    if(callback != null)
+            callback(this.ctx,this);
+}
+/**
+ * Draw svg from url onto canvas
+ * @param {String} url with the svg
+ * @param {canvasxCallback} callback callback to be called on image load
+ * @param {number=} x  x coord of canvas where the image souhle be placed, default 0
+ * @param {number=} y  y coord of canvas where the image should be placed, default 0
+ * @param {number=} width width of canvas portion, image will be placed onto, default canvas width - x
+ * @param {number=} height height of canvas portion, image will be placed onto,default canvas width - y
+ */
+CanvasX.prototype.drawSvg = function(url,callback, x, y, width, height)
+{
+    if (x === undefined)
+            x = 0;
+    if (y === undefined)
+        y = 0;
+    if (width === undefined)
+        width = this.canvas.width - x;
+    if (height === undefined)
+        height = this.canvas.height - y;
+    this.ctx.drawSvg(url, x, y, width, height)
+    if(callback != null)
+            callback(this.ctx,this);
+}
 
 /**
  * Draw image from url onto canvas
@@ -55,7 +103,7 @@ CanvasX.prototype.drawImage = function (url, callback, x, y, width, height) {
         if (height === undefined)
             height = this.canvas.height - y;
            // this.ctx.globalCompositeOperation = "destination-over";
-        this.ctx.drawImage(img, 0, 0, width, height);
+    this.ctx.drawImage(img, x, y, width, height);
 
         if(callback != null)
             callback(this.ctx,this);

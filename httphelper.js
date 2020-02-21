@@ -12,7 +12,9 @@ var httpGetCache = {}
  * @param {String} url url of http resource  file to be loaded
  * @param {loadCallback} callback 
  */
-var httpGet = function(url,callback,tryCache)
+var httpGet = function(url,callback,tryCache,options)
+{
+  try
 {
   if(tryCache)
   {
@@ -23,22 +25,55 @@ var httpGet = function(url,callback,tryCache)
         return ;
       }
   }
-    var xhr = createCORSRequest("GET",url);
+
+      var xhr = createCORSRequest((options != null && options.method) ? options.method : "GET",url);
+      if(options && options.headers)
+      {
+        for(var header in options.headers)
+          xhr.setRequestHeader(header,options.headers[header]);
+      }
     xhr.onreadystatechange = function() {
-         if (xhr.readyState == 4 && xhr.status == 200)
+          if (xhr.readyState == 4)
+          {
+              if(xhr.status == 200)
          {
            if(tryCache)
               httpGetCache[url] = xhr.responseText;
-            callback(xhr.responseText);
-         
+                callback(xhr.responseText,xhr);
          }
-         
+              else
+                callback(null,xhr);
+          }
      };
 
     
-    xhr.send(null);
+      xhr.timeout = 30000;
+      xhr.send((options != null && options.data) ? options.data :null);
+    }
+    catch(error)
+    {
 
+      console.log(error.stack);
+      callback(null,null,error);
+    }
    
+ }
+
+  function renderUrlTemplate(url,model)
+  {
+    var promise = new Promise(function(resolve,reject)
+    {  httpGet(url,function(data,rq)
+      {
+        if(data == null)
+        {
+          reject(rq);
+          return;
+        }
+        var rv = data.renderTemplate(model);
+        resolve(rv);
+      });
+    });
+    return promise;
  }
 
  function createCORSRequest(method, url) {

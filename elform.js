@@ -33,6 +33,18 @@ ElForm.prototype.validate = function(invalidEls)
         var formLabel = this.getLabel();
         if(formLabel != null && formLabel != "")
             formLabel += " / ";
+
+   
+        this.subs.forEach(form=>
+            {
+               form.elbind.validate(invalidEls);
+            })
+            this.widgets.forEach(form=>
+                {
+                   form.elbind.validate(invalidEls);
+                })
+          if(this.element.elements == null)
+            return;
         for(var i = 0; i < this.element.elements.length; i++)
         {
             var element = form.elements[i];
