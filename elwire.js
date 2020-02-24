@@ -189,6 +189,38 @@ Elbind.prototype.onInputChanged = function(el,model,value,event)
     
     this.updateModel(el,model,value,event);
 }
+Elbind.prototype.eleval = function(expression,element,event)
+{
+    var scope = this.scope;
+    var elbind = this;            
+    for(var it in elbind.nestedDataMap)
+    {
+        var itv = elbind.nestedDataMap[it];
+        eval("var "+it+" = itv");
+    }
+    this.trySetId(el);
+   var rv = eval(expression);
+   if (val == undefined)
+   try {
+       val = eval("scope."+expression);
+   }
+   catch(e){
+    console.warn("Cant eval: scope."+expression,e);
+   }
+   if (val == undefined)
+    try {
+        val = eval( expression);
+    }
+    catch(e){
+        console.warn("Cant eval: "+expression,e);
+    }
+  
+
+   if (val == undefined)
+       val = null;
+   return val;
+}
+
  // wire (prepare) the elements
 Elbind.prototype.wire = function()
 {
@@ -225,17 +257,12 @@ Elbind.prototype.wire = function()
                 var elaction = el.getAttribute("elaction");
                 if (elaction != null) {
                     var scope = this.scope;
-                    var elbind = this;
+                  
                     function doaction(event) {
-                        var element = el;
-                        for(var it in elbind.nestedDataMap)
-                            {
-                                var itv = elbind.nestedDataMap[it];
-                                eval("var "+it+" = itv");
-                            }
+                     
                        if(scope._onElAction != null)
                             scope._onElAction(event);
-                        eval(elaction);
+                        this.eleval(elaction,el,event);
                     }
                     if(el.tagName == "INPUT" || el.tagName == "TEXTAREA")
                     {
@@ -250,11 +277,7 @@ Elbind.prototype.wire = function()
                      el.onclick = doaction;
                 }
               
-                var id = el.getAttribute("elid");
-                if(id != null)
-                {
-                    scope[id] = el;
-                }
+                this.trySetId(el);
                
             }
             wireEl.bind(this)(el);
@@ -301,7 +324,7 @@ Elbind.prototype.buildPars = function(el,proto)
     if (elpar != null) {
         try
         {
-            var elparval = eval(elpar);
+            var elparval = this.eleval(elpar,el,null);
             pars.push(elparval);
         }
         catch(err)
@@ -311,6 +334,15 @@ Elbind.prototype.buildPars = function(el,proto)
     }
     pars = pars.concat(this.nestedData);
     return pars;
+}
+Elbind.prototype.trySetId = function(el)
+{
+    var id = el.getAttribute("elid");
+    if(id != null)
+    {
+        el.id = id;
+        this.scope[id] = el;
+    }  
 }
 /**
  * binds the controller data to DOM elements
@@ -327,32 +359,17 @@ Elbind.prototype.bind = function (rebuildScope) {
         for (var i = 0; i < this.bindEls.length; i++) {
             var el = this.bindEls[i];
             //set id
-            var id = el.getAttribute("elid");
-            if(id != null)
-            {
-                el.id = id;
-                this.scope[id] = el;
-            }  
+            this.trySetId(el);
         }
         for (var i = 0; i < this.subs.length; i++) {
             var el = this.subs[i];
             //set id
-            var id = el.getAttribute("elid");
-            if(id != null)
-            {
-                el.id = id;
-                this.scope[id] = el;
-            }  
+            this.trySetId(el);
         }
  	for (var i = 0; i < this.widgets.length; i++) {
             var el = this.widgets[i];
             //set id
-            var id = el.getAttribute("elid");
-            if(id != null)
-            {
-                el.id = id;
-                this.scope[id] = el;
-            }  
+            this.trySetId(el);
         }
         this.scope._phase = "build";
         this.scope.onMount = null;
@@ -372,6 +389,7 @@ Elbind.prototype.bind = function (rebuildScope) {
     if(this.prepareData)
         this.prepareData(this.scope);
   // bind own elements
+  var elbind = this;
   for (var i = 0; i < this.bindEls.length; i++) {
     var it = this.bindEls[i];
 
@@ -383,14 +401,9 @@ Elbind.prototype.bind = function (rebuildScope) {
         if (model != null) {
             if(!it._widgetMount)
              { // dont set model on sub elbind (widget)
-                var scope = this.scope;
-                try {
-                    var val = eval("scope." + model);
-                    if (val == undefined)
-                        val = null;
-                var modo = val;
-                if(modo instanceof Function)
-                    val = modo.call(scope);
+                try
+                {
+                     var val = elbind.evalModel(model,it);
                     // autowire (bidirectional) input                
                     if (it.tagName == "INPUT" || it.tagName == "TEXTAREA") 
                         it.value = val;                        
@@ -411,7 +424,7 @@ Elbind.prototype.bind = function (rebuildScope) {
             scope.scope = scope;
             try
             {
-            var val = eval("scope." + show);
+            var val = this.eleval(show,it,null);
             it.setVisible(val);
             }
             catch(error)
@@ -420,19 +433,10 @@ Elbind.prototype.bind = function (rebuildScope) {
             }
         }
         it.enclosingElbind = this;
-        var pars = [it];
-
-        // eval bind parameter
-        var elpar = it.getAttribute("elparam");            
-        if (elpar != null) {
-            var scope = this.scope;
-            var elparval = eval(elpar);
-            pars.push(elparval);
-
-        }
+        var pars=this.buildPars(it);
       
         // run bind function
-        pars = pars.concat(this.nestedData);
+    
         if (fn != null && fn !== "") {
             var elb = this.scope[fn];
             if (elb == null)
@@ -443,17 +447,17 @@ Elbind.prototype.bind = function (rebuildScope) {
          
         }
         var pre = it.getAttribute("elwire");           
-                if (pre != null) {
-                    var pars=this.buildPars(it);
-                    var elw= this.scope[pre];                    
-                    if(elw != null && typeof elw === "object")                       
-                    {
-                        if(elw.wire == null)
-                            console.error("Elbind prepare function not defined in wire object " + pre);
-                        else
-                            elw.bind.apply(this.scope, pars);
-                    }
-                }
+        if (pre != null) {
+            
+            var elw= this.scope[pre];                    
+            if(elw != null && typeof elw === "object")                       
+            {
+                if(elw.bind == null)
+                    console.error("Elbind bind function not defined in wire object " + pre);
+                else
+                    elw.bind.apply(this.scope, pars);
+            }
+        }
       
     }
     it.bindel = function(it)
@@ -482,13 +486,9 @@ Elbind.prototype.bind = function (rebuildScope) {
         var subEl = this.subs[i];
         if (subEl.elbind == null) {
             var scope = this.scope;
-            var id = subEl.getAttribute("elid");
-            if(id != null)
-            {
-               scope[id] = el;
-            }  
+            this.trySetId(el);
             var subc = subEl.getAttribute("elcontroller");
-            var controller = subc == null ? function(scope){} : eval(subc);
+            var controller = subc == null ? function(scope){} : leval(subc,subEl,null);
             var childElbind = new Elbind(controller, this);
             childElbind.attach(subEl);
            // subEl.originalParent.appendChild(subEl);
@@ -551,9 +551,8 @@ Elbind.prototype.bind = function (rebuildScope) {
        });
       
        var scope =this.scope;
-        var collection = this.scope[collectionFn];
-        if(collection == null)
-            collection = eval("scope."+collectionFn);
+        var collection = this.eleval(collectionFn,collectionEl,null);
+      
         if (collection == null) {
             console.error("Elbind collection getter not defined: " + collectionFn);
             continue;
@@ -563,17 +562,7 @@ Elbind.prototype.bind = function (rebuildScope) {
         {
             var pars = [collectionEl];
 
-            // eval bind parameter
-            var elpar = collectionEl.getAttribute("elparam");            
-            if (elpar != null) {
-                var scope = this.scope;
-                var elparval = eval(elpar);
-                pars.push(elparval);
-
-            }
-          
-            // run bind function
-            pars = pars.concat(this.nestedData);
+            var pars = this.buildPars(collectionEl,null);
             collectionData =  collection.apply(this.scope, pars);
          }
          else
@@ -625,11 +614,13 @@ Elbind.prototype.bind = function (rebuildScope) {
         var after = collectionEl.getAttribute("elafter");
         if(after != null)
         {
-            if(this.scope[after] == null)
-              console.error("Elbind after function not defined: " + collectionFn);  
-              var pars = [collectionEl.originalParent];
-              pars = pars.concat(this.nestedData);  
-            this.scope[after].apply(this.scope,pars);
+            var val = this.eleval(after,collectionEl,null);
+            if(typeof val === "function")
+            {
+             
+              var pars = this.buildPars(collectionEl, [collectionEl.originalParent]);              
+              val.apply(this.scope,pars);
+            }
         }
     }
   
@@ -645,37 +636,30 @@ Elbind.prototype.updateModel = function(el,model,value,more)
     if(value == null)
         value = event.target.value.replace("\n","")
         try {
+             var pars = thiselbind.buildPars(el,[value]);
             if(el.hasOwnProperty("_modelFunction"))
             {
-                el._modelFunction.apply(scope,this.buildPars(el,[value,more]));
+                el._modelFunction.apply(scope,pars);
                 return;
-            }
-            for(var it in this.nestedDataMap)
-            {
-                var itv = this.nestedDataMap[it];
-                eval("var "+it+" = itv");
-            }
+            }          
+            else
+                this.eleval("scope." + model + "='" + value+ "'",el,null);
             var bidi = el.getAttribute("elbidi");
             var onchange = el.getAttribute("elchange");
-            var modo = eval("scope." + model);
-            if(modo instanceof Function)
-                modo.call(scope,value);
-            else
-                eval("scope." + model + "='" + value+ "'");
+            
             if(bidi != null)
             {
                 thiselbind.bind();
             }
             if(onchange!= null)
             {
-                var fn = scope[onchange];
-                if(fn == null)
+                var fn = this.eleval(onchange,el,null);
+             
+                if(typeof fn == "function")
                 {
-                    console.error("Method: "+onchange+" not found in scope");
-                    return;
+                   
+                    fn.apply(scope,pars);
                 }
-                var pars = thiselbind.buildPars(el,[value]);
-                fn.apply(scope,pars);
             }
         }catch(err)
         {
@@ -693,21 +677,7 @@ Elbind.prototype.evalModel = function(model,el)
         try {
             if(!el.hasOwnProperty("_modelFunction"))
             {
-                for(var it in this.nestedDataMap)
-                {
-                    var itv = this.nestedDataMap[it];
-                    eval("var "+it+" = itv");
-                }
-                var val = undefined;
-                try {
-                    val = eval( model);
-                }
-                catch(e){}
-                if (val == undefined)
-                try {
-                    val = eval("scope."+model);
-                }
-                catch(e){}
+                var val = this.eleval(model,el,null);
              
                 if (val == undefined)
                     val = null;
@@ -719,7 +689,11 @@ Elbind.prototype.evalModel = function(model,el)
                     }
             }
             else
-                val = el._modelFunction.apply(scope,this.buildPars(el,[undefined]));
+            {
+                var modo = el._modelFunction;
+                var pars=this.buildPars(it,[undefined]);
+                val = modo.apply(scope,pars);                
+            }
             return val;
         }catch(err)
         {
