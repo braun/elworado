@@ -30,8 +30,8 @@ ELWIRE HTML ATTRIBUTES
 * __elparam__ sets additional param to binding/wiring/model functions __elvironment__ aplies
 * __elshow__ boolean expression, evaluated in binding phsase, determines visibility of enclosing HTML element, __elvironment__ applies.
 * __elcontroller__ marks border of subscrope/subelbind value is name of scope function or nothind, when no specific scope is needed, __elvironment__ applies.
-* __elcollection__ and __eliterator__ clone of Html element enclosing the __elcollection__ will be created for each memeber of collection evaluated from __elcollection__ expression. This member will be available to the clined element as execution closure variable named by the __eliterator__ attribute. 
+* __elcollection__ and __eliterator__ clone of Html element enclosing the __elcollection__ will be created for each member of collection evaluated from __elcollection__ expression. This member will be available to the clined element as execution closure variable named by the __eliterator__ attribute. 
     * __elafter__ - this expression is evaluated after collection binding, __elvironment__ applies. if the expression evaluates to function, the function is executed
 * __elwidget__ - see widgets
-* __elbidi__ - bidirectional binding. method bind of elbind of the element is called in update model phase
+* __elbidi__ - bidirectional bindin. when set the bind method of element's  elbind is called in update model phase
 * __elchange__ - This expression os executed on model update,__elvironment__ applies. if the expression evaluates to function, the function is executed.
