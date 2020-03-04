@@ -18,9 +18,18 @@ function ElWidget(proto)
 
 ElWidget.prototype.controllerWrapper = function(scope)
 {
+    var attrs = {};
+    if(this.attributes)
+        this.attributes.forEach((atr)=>
+        {
+            let atval = scope.elbind.element.getAttribute(atr);
+            if(atval)
+                attrs[atr] = atval;
+        });
+
     scope._modelTemplate = scope.elbind.element.getAttribute("elmodel");
     if(scope._modelTemplate == null)
-    log.error("no elmodel set for widget");
+        log.error("no elmodel set for widget");
     scope.elbind.prepareData = function(scope)
     {
         var val = this.evalModel(scope._modelTemplate,scope.elbind.element);
@@ -31,7 +40,7 @@ ElWidget.prototype.controllerWrapper = function(scope)
         scope.elbind.updateModel(scope.elbind.element, scope._modelTemplate,val,more);
         scope.elbind.bind();
     }
-    this.controller(scope);
+    this.controller(scope,attrs);
 }
 
 function registerStdWidgets()

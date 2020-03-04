@@ -42,3 +42,43 @@ function imageCarousel(slideClass,intervalSecs) {
         }
         carouselInternal();
 }
+function isElementVisible(element)
+{
+    if(!element)
+        return false;
+//
+ //   var styles = getComputedStyle(element);
+    return  element.offsetHeight > 0;   
+}
+var focusableTags = ['INPUT','BUTTON','TEXTAREA'];
+function isElementFocusable(element)
+{
+    if(!element)
+        return false;
+
+    var name = element.tagName;
+    var idx = focusableTags.indexOf(name);
+    return idx > -1;  
+}
+function moveFocusToNextField(id)
+{
+    var elems = document.querySelectorAll(".prev-"+id);
+    moveFocusToElements(elems);
+}
+function moveFocusToElements(elems)
+{
+    if(elems != null && elems.length && elems.length > 0)
+    {
+        for(var j=0; j < elems.length;j++)
+        {   
+            var el = elems[j];
+            if(el == null)
+                continue;
+            if(isElementVisible(el) && isElementFocusable(el))
+            {                            
+                el.focus();
+                return;
+            }
+        }
+    }
+}

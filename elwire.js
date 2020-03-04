@@ -1,3 +1,4 @@
+
 var ElWidget = require("./elwidget").ElWidget;
 
 /**
@@ -5,7 +6,7 @@ var ElWidget = require("./elwidget").ElWidget;
  */
 
 function Elbind(controller, parentElbind) {
-    this.controller = controller;
+    this.controller = Elbind.findController(controller);
     this.nestedData = [];
     this.nestedDataMap = {};
     if (parentElbind) {
@@ -16,6 +17,138 @@ function Elbind(controller, parentElbind) {
 
 }
 
+/**
+ * register controller
+ */
+Elbind._controllers = {}
+Elbind.controller = function(name,controller)
+{
+    Elbind._controllers[name] =
+    {
+
+        controller:controller
+    } 
+}
+
+Elbind.findController = function(candidate)
+{
+    if(candidate == null || candidate == "")
+        return function(scope){};
+
+    if(typeof candidate == "function")
+        return candidate;
+
+    var controller =  null;
+    if(Elbind._controllers.hasOwnProperty(candidate))
+    {
+        controller = Elbind._controllers[candidate];    
+        return controller.controller;
+    }
+       
+    try
+    {
+        controller = eval(candidate);
+    } 
+    catch(e)
+    {}
+
+    if(controller == null)
+    {
+        console.warn("controller not found: "+candidate);
+        return function(scope){};
+    }
+   return controller;
+}
+
+
+/**
+ * Custom tag reister
+ */
+Elbind._attributes = {};
+
+/**
+ *  custom attribute specification. Wire, bind are functions
+ */
+class AttributeSpec 
+{
+    /**
+     * @member {function} what to do on wire phsase
+     */
+    wire(elem,val,elbind) {}
+
+     /**
+     * @member {function} what to do on bind phsase
+     */
+    bind(elem,val,elbind) {}
+
+    constructor(proto)
+    {
+        Object.assign(this,proto);
+    }
+
+}
+/**
+ * add new custom attribute
+ * @param name {string} name of attribute
+ * @param tagSpec {AttributeSpec} tag specificatin, what to do on wire/bind phase
+ */
+Elbind.addAttribute = function(name,spec)
+{
+        Elbind._attributes[name] =new AttributeSpec(spec);
+        spec.name = name;
+}
+
+
+/**
+ * processes custom ttributes defined on element. if attribute is defined the mapFucntion is called
+ * @param mapFunction does the real work of tagSpec wire/bind invocation
+ */
+Elbind._processCustomAttributes = function(elem,mapFunction)
+{
+    for(var attrname in Elbind._attributes)
+    {
+        
+        var atr = elem.getAttribute(attrname)
+        if(!atr)
+            continue;
+        var attrSpec = Elbind._attributes[attrname];
+        try
+        {
+            mapFunction(attrSpec,atr);
+        }
+        catch(ex)
+        {
+            console.error("maping custom tag "+attrSpec.name+" failed",ex);
+        }
+    }
+    
+}
+
+/**
+ * add elclass custom attribute
+ */
+Elbind.addAttribute("elclass",{
+    bind: function(elem,value,elbind)
+    {
+        var classes = elbind.eleval(value,elem);
+        if(typeof classes  === "string" && classes.indexOf(" ") > -1)
+            elem.className += classes;
+        else 
+            elem.classList.add(classes);
+    }
+})
+
+/**
+ * add elclass custom attribute
+ */
+Elbind.addAttribute("elstyle",{
+    bind: function(elem,value,elbind)
+    {
+        var styles = elbind.eleval(value,elem);
+        for(var stylekey in styles)
+            elem.style[stylekey] = styles[stylekey];
+    }
+})
 /**
  * attaches the elbind to a element
  */
@@ -189,31 +322,39 @@ Elbind.prototype.onInputChanged = function(el,model,value,event)
     
     this.updateModel(el,model,value,event);
 }
-Elbind.prototype.eleval = function(expression,element,event)
+Elbind.prototype.eleval = function(expression,element,extra)
 {
     var scope = this.scope;
     var elbind = this;            
     for(var it in elbind.nestedDataMap)
     {
-        var itv = elbind.nestedDataMap[it];
+        let itv = elbind.nestedDataMap[it];
         eval("var "+it+" = itv");
     }
-    this.trySetId(el);
-   var rv = eval(expression);
-   if (val == undefined)
+    if(extra)
+    for(var it2 in extra)
+    {
+        let itv = extra[it2];
+        eval("var "+it2+" = itv");
+    }
+   var val = null;
+   var firstFailed = false;
+   try {
+     val = eval(expression);
+    }
+    catch(e){
+     //   console.warn("Cant eval: "+expression,e);
+     firstFailed = true;
+    }
+        
+   if (firstFailed || (val == undefined &&  (!extra  || !extra.ignoreSecPas)))
    try {
        val = eval("scope."+expression);
    }
    catch(e){
     console.warn("Cant eval: scope."+expression,e);
    }
-   if (val == undefined)
-    try {
-        val = eval( expression);
-    }
-    catch(e){
-        console.warn("Cant eval: "+expression,e);
-    }
+  
   
 
    if (val == undefined)
@@ -235,6 +376,11 @@ Elbind.prototype.wire = function()
                 var thiselbind = this;
                 var scope = thiselbind.scope;
                 // bind  to model autowired element
+
+                Elbind._processCustomAttributes(el,(attrSpec,attrVal)=>
+                {
+                    attrSpec.wire(el,attrVal,thiselbind);
+                });
                 var model = el.getAttribute("elmodel");                
                 if (model != null) {
                     
@@ -259,10 +405,10 @@ Elbind.prototype.wire = function()
                     var scope = this.scope;
                   
                     function doaction(event) {
-                     
+                        event.preventDefault();
                        if(scope._onElAction != null)
                             scope._onElAction(event);
-                        this.eleval(elaction,el,event);
+                        scope.elbind.eleval(elaction,el,{event:event,ignoreSecPas:true});
                     }
                     if(el.tagName == "INPUT" || el.tagName == "TEXTAREA")
                     {
@@ -340,15 +486,41 @@ Elbind.prototype.trySetId = function(el)
     var id = el.getAttribute("elid");
     if(id != null)
     {
-        el.id = id;
+        el.id = this.eleval(id,el,null);
         this.scope[id] = el;
     }  
 }
+Elbind.elbindFactory = 
+{
+    _list:[],
+    add: function(factory)
+    {
+        this._list.unshift(factory)
+    },
+    createElbind:function(element,controller,parentElbind)
+    {
+        for(var i = 0; i < this._list.length;i++)
+        {
+            let factory = this._list[i];
+            let rv = factory(element,controller,parentElbind);
+            if(rv)
+                return rv;
+        }
+        return null;
+
+    }
+}
+Elbind.elbindFactory.add(function(element,controller,parentElbind)
+{
+    return new Elbind(controller,parentElbind);
+})
 /**
  * binds the controller data to DOM elements
  */
-Elbind.prototype.bind = function (rebuildScope) {
+Elbind.prototype.bind = function (opts) {
     //this.scope._phase = "prepare";
+    var rebuildScope = opts == null? false: opts.rebuildScope;
+    var doPrepareData = opts == null ? false: opts.prepareData;
     if (!this.prepared)
         this.prepare();
    
@@ -386,19 +558,48 @@ Elbind.prototype.bind = function (rebuildScope) {
     if (Object.keys(this.nestedDataMap).length > 0)
         Object.assign(this.scope, this.nestedDataMap);
 
-    if(this.prepareData)
+        // data to widgets are propagated this way
+    if(this.prepareData && doPrepareData)
         this.prepareData(this.scope);
+    if(this.scope.onBind)
+            this.scope.onBind();
   // bind own elements
   var elbind = this;
   for (var i = 0; i < this.bindEls.length; i++) {
     var it = this.bindEls[i];
 
     function bindEl(it) {
+
+        // check element visibility
+        var show = it.getAttribute("elshow");
+        if (show != null) {
+            var scope = this.scope;
+            scope.scope = scope;
+            try
+            {
+                var val = this.eleval(show,it,null);
+                it.setVisible(val);
+                if(val != true)
+                    return;
+            }
+            catch(error)
+            {
+                console.error(error.stack);
+            }
+        }
+        if(it.isHidden())
+            return;
+
+        Elbind._processCustomAttributes(it,(attrSpec,attrVal)=>
+        {
+            attrSpec.bind(it,attrVal,elbind);
+        });
         var fn = it.getAttribute("elbind");          
                                      
         // bind  to model autowired element
         var model = it.getAttribute("elmodel");
         if (model != null) {
+            
             if(!it._widgetMount)
              { // dont set model on sub elbind (widget)
                 try
@@ -417,21 +618,7 @@ Elbind.prototype.bind = function (rebuildScope) {
             }
         }
 
-        // check element visibility
-        var show = it.getAttribute("elshow");
-        if (show != null) {
-            var scope = this.scope;
-            scope.scope = scope;
-            try
-            {
-            var val = this.eleval(show,it,null);
-            it.setVisible(val);
-            }
-            catch(error)
-            {
-                console.error(error.stack);
-            }
-        }
+        
         it.enclosingElbind = this;
         var pars=this.buildPars(it);
       
@@ -488,8 +675,9 @@ Elbind.prototype.bind = function (rebuildScope) {
             var scope = this.scope;
             this.trySetId(el);
             var subc = subEl.getAttribute("elcontroller");
-            var controller = subc == null ? function(scope){} : leval(subc,subEl,null);
-            var childElbind = new Elbind(controller, this);
+            var controller = Elbind.findController(subc);
+
+            var childElbind = Elbind.elbindFactory.createElbind(subEl,controller,this);
             childElbind.attach(subEl);
            // subEl.originalParent.appendChild(subEl);
         }
@@ -515,19 +703,19 @@ Elbind.prototype.bind = function (rebuildScope) {
                 var controller = wtemplate.controllerWrapper.bind(wtemplate);     
                 if(wtemplate.url == null)     
 		{
-                    Elbind.forElement(subEl,controller,this).bind();            
+                    Elbind.forElement(subEl,controller,this).bind({prepareData:true});            
                     delete subEl.instantiating;     
 		}
                 else
                 Elbind.forHtmlFromUrl(wtemplate.url,controller,this,subEl).then(childElbind=>{
                     delete subEl.instantiating;
-                    childElbind.bind();
+                    childElbind.bind({prepareData:true});
                 })
                         
             // subEl.originalParent.appendChild(subEl);
                 }
             } else
-             subEl.elbind.bind();
+             subEl.elbind.bind({prepareData:true});
         }
         fn.bind(this)(subEl);
     }
@@ -554,8 +742,8 @@ Elbind.prototype.bind = function (rebuildScope) {
         var collection = this.eleval(collectionFn,collectionEl,null);
       
         if (collection == null) {
-            console.error("Elbind collection getter not defined: " + collectionFn);
-            continue;
+            console.warn("Elbind collection getter not defined: " + collectionFn);
+            collection = [];
         }
         var collectionData = null;
         if(typeof(collection)=="function")
@@ -643,7 +831,7 @@ Elbind.prototype.updateModel = function(el,model,value,more)
                 return;
             }          
             else
-                this.eleval("scope." + model + "='" + value+ "'",el,null);
+                this.eleval("scope." + model + "= value",el,{'value':value});
             var bidi = el.getAttribute("elbidi");
             var onchange = el.getAttribute("elchange");
             
@@ -899,12 +1087,7 @@ Elbind.prototype.mount = function(name,opts)
     }
     return mountE.elmount;
 }
-ElApp.install = function(appController)
-{
-    if(ElApp._instance == null)
-        ElApp._instance = new ElApp(appController);
-    return ElApp._instance;
-}
+
 function ElApp(appController) {
     Elbind.bind(this)(appController);
     var initfn = function () {
@@ -920,7 +1103,12 @@ function ElApp(appController) {
     window.addEventListener('resize',this.onResize.bind(this));
 
 }
-
+ElApp.install = function(appController)
+{
+    if(ElApp._instance == null)
+        ElApp._instance = new ElApp(appController);
+    return ElApp._instance;
+}
 var elem = document.documentElement;
 
 
@@ -945,6 +1133,7 @@ function ElMount(element,app,opts)
 
 ElMount.prototype.overlay = function(templateUrl,controller,parentElbind)
 {
+    var controller = Elbind.findController(controller)
     var elmount = this;
    var promise = new Promise((resolve,reject)=>
     {
@@ -1019,6 +1208,9 @@ ElMount.prototype.goBack= function()
       this.opts.onEmpty.bind(this)(elbind);
 }
 
-module.exports.Elbind = Elbind;
-module.exports.ElApp = ElApp;
-module.exports.ElMount = ElMount;
+if(typeof module != "undefined")
+{
+    module.exports.Elbind = Elbind;
+    module.exports.ElApp = ElApp;
+    module.exports.ElMount = ElMount;
+}

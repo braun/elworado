@@ -1,12 +1,17 @@
 var Elbind = require('./elwire.js').Elbind;
-function ElForm(formElement,formController,parentElbind) {
+function ElForm(formController,parentElbind) {
     
     Elbind.bind(this)(formController,parentElbind);   
-        this.attach(formElement);
+     
 }
 Object.assign(ElForm.prototype, Elbind.prototype);
 
-
+Elbind.elbindFactory.add(function(element,controller,parentElbind)
+{
+    if(element.tagName=="FORM")
+        return new ElForm(controller,parentElbind);
+    return null;
+})
 ElForm.prototype.updateValidity = function(el,validity)
 {
     if(validity.valid)

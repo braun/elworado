@@ -216,6 +216,9 @@ Element.prototype.setHeight = function(h)
 {
     this.style.height = h+"px";
 }
+Element.prototype.isHidden = function() {
+    return (this.offsetParent === null)
+}
 function appendToBody(element)
 {
     var body = document.querySelector(".fakebody");
