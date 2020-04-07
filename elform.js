@@ -1,9 +1,29 @@
 var Elbind = require('./elwire.js').Elbind;
 function ElForm(formController,parentElbind) {
-    
-    Elbind.bind(this)(formController,parentElbind);   
+    this.fields = {};
+    this.validationRoundCallbacks = {}
+
+    function formControllerWrapper(scope)
+    {
+        var element = scope.elbind.element;
+        var name = element.getAttribute("name");
+        if(!name)
+             name = element.getAttribute("id");
+        scope[name] = this;
+        if(scope.form)
+            this.parentForm = scope.form;
+        if(!scope.forms)
+            scope.forms = {};
+        scope.forms[name] = this;
+        scope.form = this;
+        scope.afterModelUpdate = this.fireValidationRoundCallbacks.bind(this);
+            
+        formController(scope);
+    }
+    Elbind.bind(this)(formControllerWrapper,parentElbind);   
      
 }
+
 Object.assign(ElForm.prototype, Elbind.prototype);
 
 Elbind.elbindFactory.add(function(element,controller,parentElbind)
@@ -12,6 +32,39 @@ Elbind.elbindFactory.add(function(element,controller,parentElbind)
         return new ElForm(controller,parentElbind);
     return null;
 })
+
+ElForm.prototype.setValidationRoundCallback = function(elem,cb)
+{
+    this.validationRoundCallbacks[elem] = cb;
+}
+ElForm.prototype.updateModel =  function(el,model,value,more)
+{
+    Elbind.prototype.updateModel.bind(this)(el,model,value,more)
+   
+}
+ElForm.prototype.fireValidationRoundCallbacks = function()
+{
+     var vrcs = this.validationRoundCallbacks;
+    this.validationRoundCallbacks = {};
+    for(var key in vrcs)
+    {
+        let vrc = vrcs[key];
+        vrc.bind(this)();
+    }
+}
+
+ElForm.prototype.getOrCreateField = function(field)
+{
+    if(this.fields[field] == null)
+         this.fields[field] = {}
+    return this.fields[field];
+}
+
+ElForm.prototype.setFieldDirty = function(field,dirty)
+{
+   
+     this.getOrCreateField(field).dirty = dirty;
+}
 ElForm.prototype.updateValidity = function(el,validity)
 {
     if(validity.valid)

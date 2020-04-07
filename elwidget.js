@@ -26,19 +26,21 @@ ElWidget.prototype.controllerWrapper = function(scope)
             if(atval)
                 attrs[atr] = atval;
         });
-
+    
     scope._modelTemplate = scope.elbind.element.getAttribute("elmodel");
     if(scope._modelTemplate == null)
-        log.error("no elmodel set for widget");
+        console.log.error("no elmodel set for widget");
     scope.elbind.prepareData = function(scope)
     {
+        scope._modelTemplate = scope.elbind.element.getAttribute("elmodel");
         var val = this.evalModel(scope._modelTemplate,scope.elbind.element);
         scope.setModel(val);       
     }
     scope.updateModel = function(val,more)
     {
         scope.elbind.updateModel(scope.elbind.element, scope._modelTemplate,val,more);
-        scope.elbind.bind();
+        if(!scope.noElbindOnUpdateModel)
+            scope.elbind.bind();
     }
     this.controller(scope,attrs);
 }

@@ -12,7 +12,7 @@ function Elbind(controller, parentElbind) {
     if (parentElbind) {
         this.parentElbind = parentElbind;
         this.nestedData = parentElbind.nestedData.slice();
-        //  Object.assign(this.nestedDataMap,parentElbind.nestedDataMap);
+          Object.assign(this.nestedDataMap,parentElbind.nestedDataMap);
     }
 
 }
@@ -81,6 +81,8 @@ class AttributeSpec
      */
     bind(elem,val,elbind) {}
 
+    
+    afterWire(elem,val,elbind) {}
     constructor(proto)
     {
         Object.assign(this,proto);
@@ -94,7 +96,7 @@ class AttributeSpec
  */
 Elbind.addAttribute = function(name,spec)
 {
-        Elbind._attributes[name] =new AttributeSpec(spec);
+        Elbind._attributes[name] =  typeof spec == "function" ? spec: new AttributeSpec(spec);
         spec.name = name;
 }
 
@@ -103,24 +105,50 @@ Elbind.addAttribute = function(name,spec)
  * processes custom ttributes defined on element. if attribute is defined the mapFucntion is called
  * @param mapFunction does the real work of tagSpec wire/bind invocation
  */
-Elbind._processCustomAttributes = function(elem,mapFunction)
+Elbind.prototype._processCustomAttributes = function(elem,mapFunction)
 {
-    for(var attrname in Elbind._attributes)
+    // create list of custom tags
+    if(elem.customAttributes == null)
     {
-        
-        var atr = elem.getAttribute(attrname)
-        if(!atr)
-            continue;
-        var attrSpec = Elbind._attributes[attrname];
+        elem.customAttributes = {}
+        for(var attrname in Elbind._attributes)
+        {
+            
+            var atr = elem.getAttribute(attrname)
+            if(atr == null)
+                continue;
+      
+            let attrSpec = Elbind._attributes[attrname];
+            if(typeof attrSpec == "function")
+                attrSpec = new AttributeSpec( attrSpec.call(this,elem));
+          
+            elem.customAttributes[attrname] = attrSpec;
+        }
+           
+    }
+    // invoke tag spec
+   for(let key in elem.customAttributes)
+   {
+        let attrSpec = elem.customAttributes[key];
+        let atr = elem.getAttribute(key)
+      //  console.log("elbind.processAttributes:" +key+"="+atr+", "+elem.id+","+this.element.name);
         try
         {
-            mapFunction(attrSpec,atr);
+            var attrs = {};
+            if(attrSpec.attributes)
+            attrSpec.attributes.forEach((atr)=>
+            {
+                let atval = elem.getAttribute(atr);
+                if(atval)
+                    attrs[atr] = atval;
+            });
+            mapFunction(attrSpec,atr,attrs);
         }
         catch(ex)
         {
             console.error("maping custom tag "+attrSpec.name+" failed",ex);
         }
-    }
+   }
     
 }
 
@@ -128,13 +156,26 @@ Elbind._processCustomAttributes = function(elem,mapFunction)
  * add elclass custom attribute
  */
 Elbind.addAttribute("elclass",{
+    wire: function(elem,value,elbind)
+    {
+        elem._origClassName = elem.className;
+    },
     bind: function(elem,value,elbind)
     {
+        elem.className = elem._origClassName;
         var classes = elbind.eleval(value,elem);
-        if(typeof classes  === "string" && classes.indexOf(" ") > -1)
-            elem.className += classes;
-        else 
-            elem.classList.add(classes);
+        if(typeof classes  === "string" )        
+            classes = classes.split(" ");
+        
+            //elem.className += " "+classes;
+        //else 
+        if(classes != null)
+            classes.forEach(cl=>
+                {
+                    if(String.isNullOrEmpty(cl) || cl == " ")
+                        return;
+                    elem.classList.add(cl);
+                })
     }
 })
 
@@ -205,34 +246,31 @@ Elbind.prototype.prepare = function () {
     }
     var newwidgets = this.element.querySelectorAll("[elwidget]");
     this.widgets = Array.prototype.slice.call(newwidgets);
-    for (var i = 0; i < newwidgets.length; i++) 
+    var widgets = this.widgets;
+    function cleanWidgets(possibleParrents)
     {
-        var possibleParent = newwidgets[i];
-        for (var j = 0; j < newwidgets.length; j++) {
-            var possibleSubSub = newwidgets[j];
-            if(possibleParent !== possibleSubSub && possibleParent.contains(possibleSubSub))
-                {
-                    var idx = this.widgets.indexOf(possibleSubSub);
-                    if(idx > -1)
-                       this.widgets.splice(idx,1);
+        for (var i = 0; i < possibleParrents.length; i++) 
+        {
+            var possibleParent = possibleParrents[i];
+            for (var j = 0; j < newwidgets.length; j++) {
+                var possibleSubSub = newwidgets[j];
+                if(possibleParent !== possibleSubSub && possibleParent.contains(possibleSubSub))
+                    {
+                        var idx = widgets.indexOf(possibleSubSub);
+                        if(idx > -1)
+                        widgets.splice(idx,1);
+                    }
                 }
-            }
+        }
     }
-    for (var i = 0; i < this.subs.length; i++) 
-    {
-        var possibleParent = this.subs[i];
-        for (var j = 0; j < newwidgets.length; j++) {
-            var possibleSubSub = newwidgets[j];
-            if(possibleParent !== possibleSubSub && possibleParent.contains(possibleSubSub))
-                {
-                    var idx = this.widgets.indexOf(possibleSubSub);
-                    if(idx > -1)
-                       this.widgets.splice(idx,1);
-                }
-            }
-    }
+    cleanWidgets(newwidgets);
+    cleanWidgets(this.subs);
+    
+    var colls = this.element.querySelectorAll("[elcollection]");
+    this.mounts = this.element.querySelectorAll("[elmount]");
 
-
+    cleanWidgets(colls);
+    cleanWidgets(this.mounts);
     for (var i = 0; i < this.widgets.length; i++) {
         var sub = this.widgets[i];
         sub.originalParent = sub.parentNode;
@@ -241,7 +279,7 @@ Elbind.prototype.prepare = function () {
 
     }
 
-    this.mounts = this.element.querySelectorAll("[elmount]");
+   
     for (var i = 0; i < this.mounts.length; i++) {
         var sub = this.mounts[i];
         sub.originalParent = sub.parentNode;
@@ -276,7 +314,7 @@ Elbind.prototype.prepare = function () {
         return false;
     }
 
-   var colls = this.element.querySelectorAll("[elcollection]");
+   
     for (var i = 0; i < colls.length; i++) {
         var collection = colls[i];
         if(this.belongsToSubScope(collection))
@@ -377,9 +415,9 @@ Elbind.prototype.wire = function()
                 var scope = thiselbind.scope;
                 // bind  to model autowired element
 
-                Elbind._processCustomAttributes(el,(attrSpec,attrVal)=>
+                this._processCustomAttributes(el,(attrSpec,attrVal,attrs)=>
                 {
-                    attrSpec.wire(el,attrVal,thiselbind);
+                    attrSpec.wire(el,attrVal,thiselbind,attrs);
                 });
                 var model = el.getAttribute("elmodel");                
                 if (model != null) {
@@ -409,13 +447,14 @@ Elbind.prototype.wire = function()
                        if(scope._onElAction != null)
                             scope._onElAction(event);
                         scope.elbind.eleval(elaction,el,{event:event,ignoreSecPas:true});
+                       
                     }
                     if(el.tagName == "INPUT" || el.tagName == "TEXTAREA")
                     {
                         el.addEventListener("keyup", function(event) {                          
                             event.preventDefault();                           
                             if (event.keyCode === 13) {
-                             doaction();
+                             doaction(event);
                             }
                           });
                     }
@@ -424,7 +463,10 @@ Elbind.prototype.wire = function()
                 }
               
                 this.trySetId(el);
-               
+                this._processCustomAttributes(el,(attrSpec,attrVal,attrs)=>
+                {
+                    attrSpec.afterWire(el,attrVal,thiselbind,attrs);
+                });
             }
             wireEl.bind(this)(el);
         }
@@ -483,10 +525,11 @@ Elbind.prototype.buildPars = function(el,proto)
 }
 Elbind.prototype.trySetId = function(el)
 {
-    var id = el.getAttribute("elid");
-    if(id != null)
+    var ida = el.getAttribute("elid");
+    if(ida != null)
     {
-        el.id = this.eleval(id,el,null);
+        var id =this.eleval(ida,el,null); 
+        el.id = id;
         this.scope[id] = el;
     }  
 }
@@ -514,11 +557,18 @@ Elbind.elbindFactory.add(function(element,controller,parentElbind)
 {
     return new Elbind(controller,parentElbind);
 })
+function namel(el)
+{
+    if(el == null)
+    return "null";
+    return el.tagName+":"+el.className+ ((el.id && el.id != "")?", id:"+el.id:"");
+}
 /**
  * binds the controller data to DOM elements
  */
 Elbind.prototype.bind = function (opts) {
     //this.scope._phase = "prepare";
+  // console.error("elbind.bind:" +namel(this.element),new Error());
     var rebuildScope = opts == null? false: opts.rebuildScope;
     var doPrepareData = opts == null ? false: opts.prepareData;
     if (!this.prepared)
@@ -569,7 +619,7 @@ Elbind.prototype.bind = function (opts) {
     var it = this.bindEls[i];
 
     function bindEl(it) {
-
+       // console.warn("elbind.bindEl: " +namel(it)+", "+namel(elbind.element),new Error());
         // check element visibility
         var show = it.getAttribute("elshow");
         if (show != null) {
@@ -579,21 +629,23 @@ Elbind.prototype.bind = function (opts) {
             {
                 var val = this.eleval(show,it,null);
                 it.setVisible(val);
-                if(val != true)
-                    return;
+                
             }
             catch(error)
             {
                 console.error(error.stack);
             }
         }
-        if(it.isHidden())
+        this._processCustomAttributes(it,(attrSpec,attrVal,attrs)=>
+        {
+            attrSpec.bind(it,attrVal,elbind,attrs);
+        });
+
+        var bindallways = it.getAttribute("elbindallways");
+        if(bindallways == null && it.isHidden())
             return;
 
-        Elbind._processCustomAttributes(it,(attrSpec,attrVal)=>
-        {
-            attrSpec.bind(it,attrVal,elbind);
-        });
+       
         var fn = it.getAttribute("elbind");          
                                      
         // bind  to model autowired element
@@ -689,35 +741,54 @@ Elbind.prototype.bind = function (opts) {
         var subEl = this.widgets[i];
         function fn(subEl)
         {
+
+            // var bindallways = it.getAttribute("elbindallways");
+            // if(bindallways == null && it.isHidden())
+            //     return;
+
             if (subEl.elbind == null) {
                 if(subEl.instantiating !== true) {
                
-                subEl.instantiating = true;
-                var widgetid = subEl.getAttribute("elwidget");
-                var wtemplate = Elbind.widgets[widgetid];
-                if(wtemplate == null)
-                {
-                    console.error("widget with id: "+widgetid+" not found!");
-                    return;
-                }
-                var controller = wtemplate.controllerWrapper.bind(wtemplate);     
-                if(wtemplate.url == null)     
-		{
-                    Elbind.forElement(subEl,controller,this).bind({prepareData:true});            
-                    delete subEl.instantiating;     
-		}
-                else
-                Elbind.forHtmlFromUrl(wtemplate.url,controller,this,subEl).then(childElbind=>{
-                    delete subEl.instantiating;
-                    childElbind.bind({prepareData:true});
-                })
-                        
-            // subEl.originalParent.appendChild(subEl);
+                    subEl.instantiating = true;
+                    var widgetid = subEl.getAttribute("elwidget");
+                    var wtemplate = Elbind.widgets[widgetid];
+                    if(wtemplate == null)
+                    {
+                        console.error("widget with id: "+widgetid+" not found!");
+                        return;
+                    }
+                    var controller = wtemplate.controllerWrapper.bind(wtemplate);     
+                    if(wtemplate.url == null)     
+                    {
+                        Elbind.forElement(subEl,controller,this)            
+                        delete subEl.instantiating;     
+                        subEl.elbind.bind({prepareData:true});
+                    }
+                    else
+                    Elbind.forHtmlFromUrl(wtemplate.url,controller,this,subEl).then(childElbind=>{
+                        delete subEl.instantiating;
+                        var op = subEl.elbind.prepare;
+                        subEl.elbind.prepare = function()
+                        {
+                            op.bind(this)();
+                        }
+                        subEl.elbind.bind({prepareData:true});
+                    })
+                            
+                // subEl.originalParent.appendChild(subEl);
                 }
             } else
              subEl.elbind.bind({prepareData:true});
         }
-        fn.bind(this)(subEl);
+        subEl.bindel = function(it)
+        {
+            return function()
+            {
+                fn.bind(this)(subEl);
+            }.bind(this);
+        }.bind(this)(it);
+        subEl.bindel();
+       
     }
     // bind collections
     for (var i = 0; i < this.collections.length; i++) {
@@ -817,8 +888,38 @@ Elbind.prototype.bind = function (opts) {
 
     return this;
 }
+
+Elbind.prototype.watches = {}
+
+/**
+* installs watch on model update
+* @param watchmodel {String} the dot separated pat to property to watch
+* @param callback {function} callback on change params are newval,oldval
+*/
+Elbind.prototype.watch  = function(watchmodel,callback)
+{
+   if(!this.watches.hasOwnProperty(watchmodel))
+       this.watches[watchmodel] = { name:watchmodel,watchers:[]}
+   var watchspec = this.watches[watchmodel];
+   if(watchspec.watchers.indexOf(callback) == -1 )
+        this.watches[watchmodel].watchers.push({callback: callback});
+}
+
+Elbind.prototype.assign = function(model,value,el)
+{
+    this.eleval("scope." + model + "= value",el,{'value':value});
+}
+/**
+ * Update model 
+ * @param el element causing the update (editor of value)
+ * @param model {string} locating model value in scope
+ * @param value value to be set
+ */
 Elbind.prototype.updateModel = function(el,model,value,more)
 {
+    //console.warn("elbind.updateModel:" +namel(this.element),new Error());
+    var oldval = this.watches.hasOwnProperty(model) ?  this.evalModel(model,el) : null;
+   
     var scope = this.scope;
     var thiselbind = this;
     if(value == null)
@@ -831,7 +932,7 @@ Elbind.prototype.updateModel = function(el,model,value,more)
                 return;
             }          
             else
-                this.eleval("scope." + model + "= value",el,{'value':value});
+                this.assign(model,value,el)
             var bidi = el.getAttribute("elbidi");
             var onchange = el.getAttribute("elchange");
             
@@ -849,6 +950,19 @@ Elbind.prototype.updateModel = function(el,model,value,more)
                     fn.apply(scope,pars);
                 }
             }
+
+             //fire watches
+            if(this.watches.hasOwnProperty(model))
+            {
+            
+                var watchlist = this.watches[model];
+                watchlist.watchers.forEach(watcher=>
+                    {
+                        watcher.callback(value,oldval);
+                    });
+            }
+            if(scope.afterModelUpdate)
+                scope.afterModelUpdate();
         }catch(err)
         {
             console.warn("cannot evaluate model:"+model,err.stack);
@@ -856,6 +970,14 @@ Elbind.prototype.updateModel = function(el,model,value,more)
         }
     return
 }
+
+
+/**
+ * evaluate model 
+ * @param el element causing the update (editor of value)
+ * @param model {string} locating model value in scope
+ * @return mode value
+ */
 Elbind.prototype.evalModel = function(model,el)
 {
     if(model == null)
@@ -912,26 +1034,37 @@ Elbind.prototype.setController= function(controller)
 {
     this.controller = controller;
     this.wired = false;
+   // this.prepared = false;
 }
 
 Elbind.prototype.onUnmount = function()
 {
-    if(this.scope.onUnmount != null)
+    if(!this.prepared)
+        return;
+    if(this.scope &&this.scope.onUnmount != null)
      this.scope.onUnmount();
 
-    this.subs.forEach(sub=>
+     if(this.subs)
+     {
+        this.subs.forEach(sub=>
+        {
+            sub.elbind.onUnmount();
+        });
+    }
+    else
     {
-        sub.elbind.onUnmount();
-    });
+        console.warn("no sub array to unmount");
+    }
     this.collections.forEach(col=>
     {
         if(col.elbind != null && col.elbind.onUnmount)
         col.elbind.onUnmount();
     });
-    this.element = null;
+   // this.element = null;
     this.widgets.forEach(sub=>
         {
-            sub.elbind.onUnmount();
+            if(sub.elbind && sub.elbind.onUnmount)
+                sub.elbind.onUnmount();
         });
 }
 Elbind.prototype.destroy = function()
@@ -981,7 +1114,9 @@ Elbind.prototype.destroy = function()
 }
 Elbind.prototype.onMount = function()
 {
-    if(this.scope.onMount != null)
+    if(!this.prepared)
+        return;
+    if(this.scope && this.scope.onMount != null)
         this.scope.onMount();
     this.subs.forEach(sub=>
         {
@@ -1039,14 +1174,14 @@ Elbind.forHtmlFromUrl = function (url,controller,parentElbind,parentElement) {
            var originalInnerHtml = parentElement.innerHTML;
             if(controller == null)
                 controller = (scope)=>{};
-                if(data != null)
-            parentElement.innerHTML = data;
+            if(data != null)
+                parentElement.innerHTML = data;
             Elbind.forElement(parentElement,
-                function(scope)
-                {
-                    scope.originalInnerHtml = originalInnerHtml;
-                    controller(scope);
-                },parentElbind)
+            function(scope)
+            {
+                scope.originalInnerHtml = originalInnerHtml;
+                controller(scope);
+            },parentElbind)
             resolve( parentElement.elbind);
 
         }
@@ -1164,7 +1299,7 @@ ElMount.prototype.overlay = function(templateUrl,controller,parentElbind)
                 controller(scope);
             },parentElbind);
             elbind.attach(this.element);
-            this.element.elbind.parentElbind.addSub( this.element);
+          //  this.element.elbind.parentElbind.addSub( this.element);
             this.element.elbind.parentElbind.bind();
             elbind.onMount();
             if(this.opts.onMount != null)
@@ -1191,7 +1326,7 @@ ElMount.prototype.goBack= function()
             this.element.appendChild(state.nodes[i]);
         
         state.elbind.attach(this.element);
-        this.element.elbind.parentElbind.addSub( this.element);
+      //  this.element.elbind.parentElbind.addSub( this.element);
         this.element.elbind.onMount();
         this.element.elbind.parentElbind.bind();
         elbind = state.elbind;
