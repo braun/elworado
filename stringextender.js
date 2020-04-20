@@ -3,6 +3,12 @@ String.isNullOrEmpty = function(str)
 {
     return str == null || str === "";
 }
+String.nullToEmpty = function(str)
+{
+    if(str == null)
+        return "";
+    return str;
+}
 /**
  * replaces occurences of {<propname>} placeholder in this string with values of equally named properties of the hash object
  * @param {Object} hash 

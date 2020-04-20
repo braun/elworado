@@ -6,14 +6,16 @@ var ElWidget = require("./elwidget").ElWidget;
  */
 
 function Elbind(controller, parentElbind) {
-    this.controller = Elbind.findController(controller);
+    
     this.nestedData = [];
     this.nestedDataMap = {};
+    this.controllers = {};
     if (parentElbind) {
         this.parentElbind = parentElbind;
         this.nestedData = parentElbind.nestedData.slice();
           Object.assign(this.nestedDataMap,parentElbind.nestedDataMap);
     }
+    this.controller = this.findController(controller);
 
 }
 
@@ -29,6 +31,7 @@ Elbind.controller = function(name,controller)
         controller:controller
     } 
 }
+
 
 Elbind.findController = function(candidate)
 {
@@ -429,7 +432,8 @@ Elbind.prototype.wire = function()
                           
                             el.addEventListener("input",function(event)
                             {
-                                thiselbind.onInputChanged(el,model,event.target.value,event);
+                                var val = event.target.type ==="checkbox" ? event.target.checked : event.target.value;
+                                thiselbind.onInputChanged(el,model,val,event);
                             } );
                         }
                     } catch (err) {
@@ -563,10 +567,26 @@ function namel(el)
     return "null";
     return el.tagName+":"+el.className+ ((el.id && el.id != "")?", id:"+el.id:"");
 }
+Elbind.prototype.findController = function(cname)
+{
+    if(this.controllers[cname] != null)
+        return this.controllers[cname];
+    else if(this.parentElbind != null)
+        return this.parentElbind.findController(cname);
+    else
+        return Elbind.findController(cname);
+}
+
+Elbind.prototype.addController = function(cname,controller)
+{
+    this.controllers[cname] = controller;
+}
 /**
  * binds the controller data to DOM elements
  */
 Elbind.prototype.bind = function (opts) {
+    if(opts == null)
+        opts = {}
     //this.scope._phase = "prepare";
   // console.error("elbind.bind:" +namel(this.element),new Error());
     var rebuildScope = opts == null? false: opts.rebuildScope;
@@ -615,11 +635,8 @@ Elbind.prototype.bind = function (opts) {
             this.scope.onBind();
   // bind own elements
   var elbind = this;
-  for (var i = 0; i < this.bindEls.length; i++) {
-    var it = this.bindEls[i];
-
     function bindEl(it) {
-       // console.warn("elbind.bindEl: " +namel(it)+", "+namel(elbind.element),new Error());
+        // console.warn("elbind.bindEl: " +namel(it)+", "+namel(elbind.element),new Error());
         // check element visibility
         var show = it.getAttribute("elshow");
         if (show != null) {
@@ -645,21 +662,26 @@ Elbind.prototype.bind = function (opts) {
         if(bindallways == null && it.isHidden())
             return;
 
-       
+        
         var fn = it.getAttribute("elbind");          
-                                     
+                                    
         // bind  to model autowired element
         var model = it.getAttribute("elmodel");
         if (model != null) {
             
             if(!it._widgetMount)
-             { // dont set model on sub elbind (widget)
+            { // dont set model on sub elbind (widget)
                 try
                 {
-                     var val = elbind.evalModel(model,it);
+                    var val = elbind.evalModel(model,it);
                     // autowire (bidirectional) input                
                     if (it.tagName == "INPUT" || it.tagName == "TEXTAREA") 
+                    {
+                        if(it.type === "checkbox")
+                            it.checked = val;
+                            else
                         it.value = val;                        
+                    }
                     else if(it.tagName == "IMG")
                         it.src = val;
                     else
@@ -673,7 +695,7 @@ Elbind.prototype.bind = function (opts) {
         
         it.enclosingElbind = this;
         var pars=this.buildPars(it);
-      
+    
         // run bind function
     
         if (fn != null && fn !== "") {
@@ -681,9 +703,9 @@ Elbind.prototype.bind = function (opts) {
             if (elb == null)
                 console.error("Elbind binding function not defined: " + fn);
             else
-           
-              elb.apply(this.scope, pars);
-         
+            
+            elb.apply(this.scope, pars);
+        
         }
         var pre = it.getAttribute("elwire");           
         if (pre != null) {
@@ -697,8 +719,14 @@ Elbind.prototype.bind = function (opts) {
                     elw.bind.apply(this.scope, pars);
             }
         }
-      
+    
     }
+  if(opts.bindSelf === true)
+    bindEl.bind(this)(this.element);
+  for (var i = 0; i < this.bindEls.length; i++) {
+    var it = this.bindEls[i];
+
+   
     it.bindel = function(it)
     {
         return function()
@@ -727,13 +755,13 @@ Elbind.prototype.bind = function (opts) {
             var scope = this.scope;
             this.trySetId(el);
             var subc = subEl.getAttribute("elcontroller");
-            var controller = Elbind.findController(subc);
+            var controller = elbind.findController(subc);
 
             var childElbind = Elbind.elbindFactory.createElbind(subEl,controller,this);
             childElbind.attach(subEl);
            // subEl.originalParent.appendChild(subEl);
         }
-        subEl.elbind.bind();
+        subEl.elbind.bind({bindSelf: true});
     }
     // bind widgets
     var scope = this.scope;
@@ -918,7 +946,9 @@ Elbind.prototype.assign = function(model,value,el)
 Elbind.prototype.updateModel = function(el,model,value,more)
 {
     //console.warn("elbind.updateModel:" +namel(this.element),new Error());
-    var oldval = this.watches.hasOwnProperty(model) ?  this.evalModel(model,el) : null;
+    var wmodel  = model.startsWith("scope.") ? model.replace("scope.","") : model;
+        
+    var oldval = this.watches.hasOwnProperty(wmodel) ?  this.evalModel(model,el) : null;
    
     var scope = this.scope;
     var thiselbind = this;
@@ -952,13 +982,13 @@ Elbind.prototype.updateModel = function(el,model,value,more)
             }
 
              //fire watches
-            if(this.watches.hasOwnProperty(model))
+            if(this.watches.hasOwnProperty(wmodel))
             {
             
-                var watchlist = this.watches[model];
+                var watchlist = this.watches[wmodel];
                 watchlist.watchers.forEach(watcher=>
                     {
-                        watcher.callback(value,oldval);
+                        watcher.callback(value,oldval,scope);
                     });
             }
             if(scope.afterModelUpdate)
@@ -1268,7 +1298,7 @@ function ElMount(element,app,opts)
 
 ElMount.prototype.overlay = function(templateUrl,controller,parentElbind)
 {
-    var controller = Elbind.findController(controller)
+    var controller = parentElbind == null ? Elbind.findController(controller): parentElbind.findController(controller)
     var elmount = this;
    var promise = new Promise((resolve,reject)=>
     {
