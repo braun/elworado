@@ -926,6 +926,8 @@ Elbind.prototype.watches = {}
 */
 Elbind.prototype.watch  = function(watchmodel,callback)
 {
+    if(watchmodel.startsWith("scope."))
+        watchmodel = watchmodel.replace("scope.","");
    if(!this.watches.hasOwnProperty(watchmodel))
        this.watches[watchmodel] = { name:watchmodel,watchers:[]}
    var watchspec = this.watches[watchmodel];
@@ -955,7 +957,7 @@ Elbind.prototype.updateModel = function(el,model,value,more)
     if(value == null)
         value = event.target.value.replace("\n","")
         try {
-             var pars = thiselbind.buildPars(el,[value]);
+             var pars = thiselbind.buildPars(el,[oldval,value]);
             if(el.hasOwnProperty("_modelFunction"))
             {
                 el._modelFunction.apply(scope,pars);
@@ -972,7 +974,7 @@ Elbind.prototype.updateModel = function(el,model,value,more)
             }
             if(onchange!= null)
             {
-                var fn = this.eleval(onchange,el,null);
+                var fn = this.eleval(onchange,el,{ignoreSecPas:true});
              
                 if(typeof fn == "function")
                 {
