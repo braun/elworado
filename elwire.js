@@ -222,9 +222,17 @@ Elbind.prototype.attachSelector = function (selector, parent) {
 Elbind.prototype.prepare = function () {
     if (this.prepared)
         return;
-    this.prepared = true;
+  
+        this._doprepare();
+    
+}
 
-//TODO: optimalize preparing of elcontrollers and elwidgets
+Elbind.prototype._doprepare = function () {
+    if (this.prepared)
+        return;
+        this.prepared = true;
+
+    //TODO: optimalize preparing of elcontrollers and elwidgets
     var newsubs  = this.element.querySelectorAll("[elcontroller]");
    this.subs = Array.prototype.slice.call(newsubs);
     for (var i = 0; i < newsubs.length; i++) 
@@ -319,6 +327,21 @@ Elbind.prototype.prepare = function () {
 
    
     for (var i = 0; i < colls.length; i++) {
+        var collection = colls[i];
+        if(this.belongsToSubScope(collection))
+            continue;
+
+            // filter out "sub" collections
+            for(var j = 0; j < colls.length; j++)            
+                if(colls[j].contains(collection))
+                    continue;
+            
+        this.collections.push(collection);
+        collection.originalParent = collection.parentNode;
+        collection.parentNode.removeChild(collection);
+
+    }
+   for (var i = 0; i < colls.length; i++) {
         var collection = colls[i];
         if(this.belongsToSubScope(collection))
             continue;
@@ -958,11 +981,8 @@ Elbind.prototype.updateModel = function(el,model,value,more)
         value = event.target.value.replace("\n","")
         try {
              var pars = thiselbind.buildPars(el,[oldval,value]);
-            if(el.hasOwnProperty("_modelFunction"))
-            {
-                el._modelFunction.apply(scope,pars);
-                return;
-            }          
+            if(el.hasOwnProperty("_modelFunction"))            
+                el._modelFunction.apply(scope,pars);                                   
             else
                 this.assign(model,value,el)
             var bidi = el.getAttribute("elbidi");
@@ -1033,7 +1053,7 @@ Elbind.prototype.evalModel = function(model,el)
             else
             {
                 var modo = el._modelFunction;
-                var pars=this.buildPars(it,[undefined]);
+                var pars=this.buildPars(el,[undefined,undefined]);
                 val = modo.apply(scope,pars);                
             }
             return val;
@@ -1317,26 +1337,46 @@ ElMount.prototype.overlay = function(templateUrl,controller,parentElbind)
             this.element.elbind.parentElbind.removeSub( this.element);
             this.element.innerHTML = text;
 
-            if(controller == null)
-                controller = function(scope) {};
-
-            if(parentElbind == null)
-                parentElbind = this.element.elbind != null ?  this.element.elbind.parentElbind : this.elapp
-            var elbind = new Elbind((scope)=>
+            var includes = this.element.querySelectorAll("[elinclude]");
+            function getInclude(idx,cb)
             {
-                scope.goBack = function()
+                if(idx >= includes.length)
                 {
-                    elmount.goBack();
+                    cb();
+                    return;
                 }
-                controller(scope);
-            },parentElbind);
-            elbind.attach(this.element);
-          //  this.element.elbind.parentElbind.addSub( this.element);
-            this.element.elbind.parentElbind.bind();
-            elbind.onMount();
-            if(this.opts.onMount != null)
-                this.opts.onMount.bind(this)(elbind);
-            resolve(elbind);
+                var include = includes[idx];
+                var url = include.getAttribute("elinclude");
+                httpGet(url,function(htmls)
+                {
+                    include.innerHTML =htmls;
+                    getInclude(idx+1,cb);
+                });
+            }
+            function finishOverlay()
+            {
+                if(controller == null)
+                    controller = function(scope) {};
+
+                if(parentElbind == null)
+                    parentElbind = this.element.elbind != null ?  this.element.elbind.parentElbind : this.elapp
+                var elbind = new Elbind((scope)=>
+                {
+                    scope.goBack = function()
+                    {
+                        elmount.goBack();
+                    }
+                    controller(scope);
+                },parentElbind);
+                elbind.attach(this.element);
+            //  this.element.elbind.parentElbind.addSub( this.element);
+                this.element.elbind.parentElbind.bind();
+                elbind.onMount();
+                if(this.opts.onMount != null)
+                    this.opts.onMount.bind(this)(elbind);
+                resolve(elbind);
+            }
+            getInclude.bind(this)(0,finishOverlay.bind(this));
         }.bind(this),true);
     });
     return promise;
