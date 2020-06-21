@@ -10,7 +10,7 @@ Element.prototype.setVisible = function (visible,originalDisplayStyle) {
     if(originalDisplayStyle)
         this.originalDisplayStyle = originalDisplayStyle;
     if (!(this.hasOwnProperty("originalDisplayStyle")))
-        this.originalDisplayStyle =  ""// : this.style.display; // === "" ? "block" : this.style.display;
+        this.originalDisplayStyle =  this.getAttribute("toDisplay");//""// : this.style.display; // === "" ? "block" : this.style.display;
     if (visible && this.originalDisplayStyle === "")
         this.style.display ="";
     else
