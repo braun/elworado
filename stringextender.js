@@ -103,4 +103,42 @@ function getIntBytes( x ){
 }
 
 
+function fixEmpty(val,def)
+{
+    if(def == null)
+        def = "";
+    if(val == null)
+        return def;
+    return val
+}
+
+function isEmpty(val)
+{
+    return String.isNullOrEmpty(val);
+}
+
+function describeValue(val,prefix,opts,suffix)
+{
+    if(typeof opts == "function" || opts == null)
+        opts = {formatter: opts,suffix:suffix};
+    if(typeof val == "function")
+        val = val();
+    if(val == null)
+        if(opts.defval == null)
+            return "";
+        else
+            return opts.defval;
+
+            var rv = "";
+    if(prefix != null)
+        rv += prefix;
+    if(opts.formatter)
+        rv += opts.formatter(val);
+    else 
+        rv += val;
+    if(opts.suffix)
+        rv += suffix;
+
+    return rv;
+}
 
