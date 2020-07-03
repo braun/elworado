@@ -697,6 +697,14 @@ Elbind.prototype.bind = function (opts) {
                 try
                 {
                     var val = elbind.evalModel(model,it);
+                    var format = it.getAttribute("elformat");
+                    if(format != null)
+                    {
+                        var func = this.scope[format]
+                        if(func == null || typeof(func) != "function")
+                            return;
+                        val = func.apply(this.scope,[val].concat(pars));
+                    }
                     // autowire (bidirectional) input                
                     if (it.tagName == "INPUT" || it.tagName == "TEXTAREA") 
                     {
