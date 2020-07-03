@@ -378,6 +378,11 @@ Elbind.prototype._doprepare = function () {
     if (this.element.getAttribute("elwire") != null)
          this.bindEls.unshift(this.element);
 
+
+   this.bindEls.forEach(el=>
+    {
+        el.enclosingElbind = this;
+    })
 }
 
 
@@ -526,6 +531,24 @@ Elbind.prototype.wire = function()
               
             }
             customWireEl.bind(this)(el);
+        }
+
+        for (var i = 0; i < this.bindEls.length; i++) {
+            var el = this.bindEls[i];
+            
+            function afterWireEl(el)
+            {
+                var thiselbind = this;
+                var scope = thiselbind.scope;
+                // bind  to model autowired element
+
+            
+                this._processCustomAttributes(el,(attrSpec,attrVal,attrs)=>
+                {
+                    attrSpec.afterWire(el,attrVal,thiselbind,attrs);
+                });
+            }
+            afterWireEl.bind(this)(el);
         }
 }
 var elwireKeySequence = 1;
@@ -690,6 +713,8 @@ Elbind.prototype.bind = function (opts) {
                                     
         // bind  to model autowired element
         var model = it.getAttribute("elmodel");
+        it.enclosingElbind = this;
+        var pars=this.buildPars(it);``
         if (model != null) {
             
             if(!it._widgetMount)
@@ -724,8 +749,7 @@ Elbind.prototype.bind = function (opts) {
         }
 
         
-        it.enclosingElbind = this;
-        var pars=this.buildPars(it);
+       
     
         // run bind function
     
@@ -1357,6 +1381,17 @@ ElMount.prototype.overlay = function(templateUrl,controller,parentElbind)
                 var url = include.getAttribute("elinclude");
                 httpGet(url,function(htmls)
                 {
+                    // simple template context customization 
+                    var replace = include.getAttribute("elreplace");
+                    if(replace != null)
+                    {
+                        var replaceo = JSON.parse(replace)
+                        for(let key in replaceo)
+                        {
+                            var replacement = replaceo[key]
+                            htmls = htmls.replace(new RegExp(key,"g"),replacement);
+                        }
+                    }
                     include.innerHTML =htmls;
                     getInclude(idx+1,cb);
                 });

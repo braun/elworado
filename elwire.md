@@ -35,3 +35,6 @@ ELWIRE HTML ATTRIBUTES
 * __elwidget__ - see widgets
 * __elbidi__ - bidirectional bindin. when set the bind method of element's  elbind is called in update model phase
 * __elchange__ - This expression os executed on model update,__elvironment__ applies. if the expression evaluates to function, the function is executed.
+* __elinclude__ - (url) URL of html will be placed as innerHTML of element containing elinclude attribute.
+    * __elreplace__ - Simple template customization option. Value of this attribute is Json string - object defining key-value pairs of string to replace (key) with other string (value). These replacements will be performed on the tempalte loaded on url 
+* __elformat__ - name of scope defined function formatting the elmodel produced value for innerHTML of target element
