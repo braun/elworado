@@ -100,7 +100,7 @@ class AttributeSpec
 Elbind.addAttribute = function(name,spec)
 {
         Elbind._attributes[name] =  typeof spec == "function" ? spec: new AttributeSpec(spec);
-        spec.name = name;
+        Elbind._attributes[name].name = name;
 }
 
 
@@ -123,8 +123,10 @@ Elbind.prototype._processCustomAttributes = function(elem,mapFunction)
       
             let attrSpec = Elbind._attributes[attrname];
             if(typeof attrSpec == "function")
+            {
                 attrSpec = new AttributeSpec( attrSpec.call(this,elem));
-          
+                attrSpec.name = attrname;
+            }
             elem.customAttributes[attrname] = attrSpec;
         }
            
@@ -421,7 +423,7 @@ Elbind.prototype.eleval = function(expression,element,extra)
        val = eval("scope."+expression);
    }
    catch(e){
-    console.warn("Cant eval: scope."+expression,e);
+  //  console.warn("Cant eval: scope."+expression,e);
    }
   
   
@@ -460,6 +462,7 @@ Elbind.prototype.wire = function()
                           
                             el.addEventListener("input",function(event)
                             {
+                                model = el.getAttribute("elmodel"); 
                                 var val = event.target.type ==="checkbox" ? event.target.checked : event.target.value;
                                 thiselbind.onInputChanged(el,model,val,event);
                             } );
@@ -994,6 +997,13 @@ Elbind.prototype.assign = function(model,value,el)
 {
     this.eleval("scope." + model + "= value",el,{'value':value});
 }
+
+Elbind.prototype.updateModelAssign = function(el,model,value,more)
+{
+    el._justAssign = true;
+    this.updateModel(el,model,value,more);
+    delete el._justAssign;
+}
 /**
  * Update model 
  * @param el element causing the update (editor of value)
@@ -1013,7 +1023,7 @@ Elbind.prototype.updateModel = function(el,model,value,more)
         value = event.target.value.replace("\n","")
         try {
              var pars = thiselbind.buildPars(el,[oldval,value]);
-            if(el.hasOwnProperty("_modelFunction"))            
+            if(el.hasOwnProperty("_modelFunction") && !el._justAssign)            
                 el._modelFunction.apply(scope,pars);                                   
             else
                 this.assign(model,value,el)
@@ -1184,6 +1194,11 @@ Elbind.prototype.destroy = function()
          col.itemMap[key].elbind.destroy();
         }
     });
+    if(this.element)
+    {
+        delete this.element.elbind;
+        delete this.element.bindel;
+    }
     this.element = null;
     this.subs = [];
     this.collections = [];
@@ -1194,6 +1209,7 @@ Elbind.prototype.destroy = function()
     this.scope.elbind = null;
     this.scope = null;
     this.widgets = [];
+    this.watches = {};
     
 }
 Elbind.prototype.onMount = function()

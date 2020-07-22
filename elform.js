@@ -12,8 +12,8 @@ function ElForm(formController,parentElbind) {
         scope[name] = this;
         if(scope.form)
             this.parentForm = scope.form;
-        if(!scope.forms)
-            scope.forms = {};
+       if(!scope.forms)
+           scope.forms = {};
         scope.forms[name] = this;
         scope.form = this;
         scope.afterModelUpdate = this.fireValidationRoundCallbacks.bind(this);
