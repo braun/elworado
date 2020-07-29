@@ -423,7 +423,7 @@ Elbind.prototype.eleval = function(expression,element,extra)
        val = eval("scope."+expression);
    }
    catch(e){
-  //  console.warn("Cant eval: scope."+expression,e);
+      console.warn("Cant eval: scope."+expression,e);
    }
   
   
