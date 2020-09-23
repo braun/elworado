@@ -7,7 +7,8 @@ class DescBuilder
             opts = {}
         this.opts = 
         {
-            separator:", "
+            separator:", ",
+            arraySeparator:" "
         }
         Object.assign(this.opts,opts);
         this.buildUp = "";
@@ -22,11 +23,23 @@ class DescBuilder
     }
     desc(val,prefix,opts,suffix)
     {
+      
+        if(Array.isArray(val))
+        {
+            var ib = new DescBuilder(this.opts);
+        
+            val.forEach(it=>
+                {
+                    ib.desc(it,null,opts,null).separe(this.opts.arraySeparator)
+                })
+                val = ib.build();
+        }
         var s = describeValue(val,prefix,opts,suffix);
         this._putSeparator(s);
         this.buildUp += s;
         return this;
     }
+   
     resetPending()
     {
         delete this.pendingSeparator;

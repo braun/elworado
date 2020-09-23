@@ -15,6 +15,7 @@ function Elbind(controller, parentElbind) {
         this.nestedData = parentElbind.nestedData.slice();
           Object.assign(this.nestedDataMap,parentElbind.nestedDataMap);
     }
+    this.watchStack = [];
     this.controller = this.findController(controller);
 
 }
@@ -989,9 +990,14 @@ Elbind.prototype.watch  = function(watchmodel,callback)
    if(!this.watches.hasOwnProperty(watchmodel))
        this.watches[watchmodel] = { name:watchmodel,watchers:[]}
    var watchspec = this.watches[watchmodel];
+   var watcher = {callback: callback};
    if(watchspec.watchers.indexOf(callback) == -1 )
-        this.watches[watchmodel].watchers.push({callback: callback});
-}
+        this.watches[watchmodel].watchers.push(watcher);
+    this.watchStack.push(()=>
+    {
+        this.watches[watchmodel].watchers.removeElement(watcher)
+    })
+    }
 
 Elbind.prototype.assign = function(model,value,el)
 {
@@ -1176,6 +1182,10 @@ Elbind.prototype.destroy = function()
     {
         console.exception(e)
     }
+    this.watchStack.forEach(remvee=>
+        {
+            remvee();
+        })
     this.subs.forEach(sub=>
     {
         if(sub.elbind != null)
@@ -1427,6 +1437,7 @@ ElMount.prototype.overlay = function(templateUrl,controller,parentElbind)
                     }
                     controller(scope);
                 },parentElbind);
+               
                 elbind.attach(this.element);
             //  this.element.elbind.parentElbind.addSub( this.element);
                 this.element.elbind.parentElbind.bind();

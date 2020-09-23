@@ -38,7 +38,7 @@ ElWidget.prototype.controllerWrapper = function(scope)
     }
     scope.updateModel = function(val,more)
     {
-        scope.elbind.updateModel(scope.elbind.element, scope._modelTemplate,val,more);
+        scope.elbind.parentElbind.updateModel(scope.elbind.element, scope._modelTemplate,val,more);
         if(!scope.noElbindOnUpdateModel)
             scope.elbind.bind();
     }
