@@ -100,4 +100,16 @@ var httpGet = function(url,callback,tryCache,options)
     return xhr;
   }
 
+  function httpGetPromise(url,tryCache,options)
+  {
+    var rv = new Promise((resolve,reject)=>
+    {
+      httpGet(url,(data)=>
+      {
+        resolve(data);
+      },tryCache,options);
+    })
+    return rv;
+  }
+  window.httpGetPromise = httpGetPromise;
   window.httpGet = httpGet;
