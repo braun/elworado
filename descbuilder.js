@@ -74,12 +74,22 @@ class DescBuilder
     }
     _putSeparator(s)
     {
-        if(this.pendingSeparator != null && !isEmpty(s) )
+        if(this.pendingSeparator != null)
         {
-            this.buildUp += this.pendingSeparator;
+            if(!isEmpty(s) && !isEmpty(this.buildUp))
+               this.buildUp += this.pendingSeparator;
             delete this.pendingSeparator;
         }
     }
 }
 
+function DESC(txt)
+{
+    var rv =  new DescBuilder();
+    if(txt)
+        rv.reset(txt);
+    return rv;
+}
+
 module.exports.DescBuilder = DescBuilder;
+module.exports.DESC = DESC;
