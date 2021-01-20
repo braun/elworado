@@ -47,7 +47,7 @@ class DescBuilder
    descIf(cond,val,prefix,opts,suffix)
    {
        if(cond)
-        this.desc(val,prefix,opts,suffix);
+        this.desc(val(cond),prefix,opts,suffix);
         return this;
    }
     separe(separator)
