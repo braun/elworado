@@ -396,6 +396,8 @@ Elbind.prototype.onInputChanged = function(el,model,value,event)
 }
 Elbind.prototype.eleval = function(expression,element,extra)
 {
+    if(expression == null || expression == "")
+        return null;
     var scope = this.scope;
     var elbind = this;            
     for(var it in elbind.nestedDataMap)
