@@ -46,8 +46,10 @@ class DescBuilder
     }
    descIf(cond,val,prefix,opts,suffix)
    {
-       if(cond)
-        this.desc(val(cond),prefix,opts,suffix);
+       if(!cond)
+            return this;
+        var v = typeof val == "function" ? val(cond) : val;
+        this.desc(v,prefix,opts,suffix);
         return this;
    }
     separe(separator)

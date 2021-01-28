@@ -1349,7 +1349,13 @@ function ElApp(appController) {
     
     window.addEventListener('resize',this.onResize.bind(this));
 
+    var obind = this.bind;
+    this.bind = function(opts)
+    {
+        obind.bind(this)(opts);
+    }
 }
+
 ElApp.install = function(appController)
 {
     if(ElApp._instance == null)
