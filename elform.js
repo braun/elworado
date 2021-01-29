@@ -16,8 +16,14 @@ function ElForm(formController,parentElbind) {
            scope.forms = {};
         scope.forms[name] = this;
         scope.form = this;
-        scope.afterModelUpdate = this.fireValidationRoundCallbacks.bind(this);
-            
+        scope.oAfterModelupdate =scope.afterModelUpdate;
+        scope.fireValidationRoundCallbacks = this.fireValidationRoundCallbacks.bind(this);
+        scope.afterModelUpdate = function(pscope)
+        {
+            if(scope.oAfterModelupdate)
+                scope.oAfterModelupdate(pscope);
+            scope.fireValidationRoundCallbacks(pscope);
+        }
         formController(scope);
     }
     Elbind.bind(this)(formControllerWrapper,parentElbind);   

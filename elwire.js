@@ -1064,7 +1064,7 @@ Elbind.prototype.updateModel = function(el,model,value,more)
                     });
             }
             if(scope.afterModelUpdate)
-                scope.afterModelUpdate();
+                scope.afterModelUpdate(this.scope);
         }catch(err)
         {
             console.warn("cannot evaluate model:"+model,err.stack);
