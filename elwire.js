@@ -720,7 +720,7 @@ Elbind.prototype.bind = function (opts) {
         // bind  to model autowired element
         var model = it.getAttribute("elmodel");
         it.enclosingElbind = this;
-        var pars=this.buildPars(it);``
+        var pars=this.buildPars(it);
         if (model != null) {
             
             if(!it._widgetMount)
@@ -954,7 +954,9 @@ Elbind.prototype.bind = function (opts) {
                 Object.assign(itemNode.elbind.nestedDataMap,this.nestedDataMap);
                     
                 itemNode.elbind.addNestedData(iter, itemData);
-                itemNode.elbind.bind();
+                if(!opts.doBindCallback || opts.doBindCallback(itemData,itemNode))
+                    itemNode.elbind.bind();
+                delete itemData._newItem;
             }
         }
        
