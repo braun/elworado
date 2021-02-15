@@ -42,7 +42,10 @@ String.prototype.capitalize = function()
 {    
         return this.charAt(0).toUpperCase() + this.slice(1);    
 }
-
+Array.prototype.contains = function(substr)
+{
+    return this.indexOf(substr) > -1;
+}
 String.prototype.contains = function(substr)
 {
     return this.indexOf(substr) > -1;

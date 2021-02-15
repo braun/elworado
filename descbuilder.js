@@ -52,6 +52,23 @@ class DescBuilder
         this.desc(v,prefix,opts,suffix);
         return this;
    }
+   descEach(arr,describeFunc)
+   {
+       arr.forEach(v=>describeFunc.bind(this)(v,this));
+       return this;
+   }
+   fork(cond,onTrue,onFalse)
+   {
+        if(cond && onTrue != null)
+            onTrue.bind(this)(this);
+        if(!cond && onFalse != null)
+            onFalse.bind(this)(this);
+        return this;
+   }
+   sep(separator)
+   {
+      return  this.separe(separator);
+   }
     separe(separator)
     {
         if(separator == null)
