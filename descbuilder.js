@@ -23,7 +23,12 @@ class DescBuilder
     }
     desc(val,prefix,opts,suffix)
     {
-      
+      if(typeof opts == "string")
+      {
+      	const o = suffix;
+      	suffix = opts;
+      	opts = o;
+      }
         if(Array.isArray(val))
         {
             var ib = new DescBuilder(this.opts);
