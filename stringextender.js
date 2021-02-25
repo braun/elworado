@@ -84,6 +84,25 @@ Object.iterate = function(obj,callback,accu)
     }
     return accum;
 }
+Object.traverse = function (structure,callback) {
+
+    function wrapCallback(item)
+    {
+        callback(item);
+        Object.traverse(item,callback);
+    }
+   if(Array.isArray(structure))
+    structure.forEach(wrapCallback);
+   else if(typeof(structure) == "object")
+        for(var key in structure)
+        {
+            if(!structure.hasOwnProperty(key))
+                continue;
+            var item = structure[key];
+            wrapCallback(item);
+          
+     }
+}
 function guid() {
     function s4() {
         return Math.floor((1 + Math.random()) * 0x10000)
