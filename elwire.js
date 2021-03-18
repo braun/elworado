@@ -579,13 +579,15 @@ Elbind.prototype.buildPars = function(el,proto)
     pars = pars.concat(this.nestedData);
     return pars;
 }
+var elidKeySequence = 0;
 Elbind.prototype.trySetId = function(el)
 {
     var ida = el.getAttribute("elid");
     if(ida != null)
     {
         var id =this.eleval(ida,el,null); 
-        el.id = id;
+        el.id = id+"_"+(elidKeySequence++);
+        el._elid = id
         this.scope[id] = el;
     }  
 }

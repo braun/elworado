@@ -37,7 +37,9 @@ String.prototype.renderTemplate = function(model)
     return rv;
 }
 
-
+String.prototype.removeDiacritics = function() {
+    return this.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+}
 String.prototype.capitalize = function()
 {    
         return this.charAt(0).toUpperCase() + this.slice(1);    
