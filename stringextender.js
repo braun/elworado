@@ -1,4 +1,5 @@
 
+
 String.isNullOrEmpty = function(str)
 {
     return str == null || str === "";
@@ -90,12 +91,21 @@ Object.traverse = function (structure,callback) {
 
     function wrapCallback(item)
     {
-        callback(item);
         Object.traverse(item,callback);
+        var rv =callback(item);
+      
+        return rv;
     }
    if(Array.isArray(structure))
-    structure.forEach(wrapCallback);
-   else if(typeof(structure) == "object")
+   {
+     
+       structure.forEach((i,idx)=>{
+           const r = wrapCallback(i);
+          if(r != undefined)
+            structure[idx] = r;
+       });
+     
+   } else if(typeof(structure) == "object")
         for(var key in structure)
         {
             if(!structure.hasOwnProperty(key))
@@ -141,6 +151,14 @@ function isEmpty(val)
     return String.isNullOrEmpty(val);
 }
 
+String.condense = function(str)
+{
+    var s = "";
+    s = s+str;
+    s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    s= s.replace(/[^0-9a-zA-Z]/g, '') 
+    return s;   
+}
 function describeValue(val,prefix,opts,suffix)
 {
     if(typeof opts == "function" || opts == null)
