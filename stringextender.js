@@ -136,7 +136,20 @@ function getIntBytes( x ){
     return bytes;
 }
 
+String.fillLeft = function( strOrNumber, width,padding )
+{
+    if(padding == null)
+        padding = "0";
 
+    if(typeof strOrNumber == "number")
+        strOrNumber = strOrNumber.toString();
+  width -= strOrNumber.length;
+  if ( width > 0 )
+  {
+    return new Array( width + (/\./.test( strOrNumber ) ? 2 : 1) ).join( '0' ) + strOrNumber;
+  }
+  return strOrNumber + ""; // always return a string
+}
 function fixEmpty(val,def)
 {
     if(def == null)
