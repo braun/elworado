@@ -38,7 +38,11 @@ Elbind.elbindFactory.add(function(element,controller,parentElbind)
         return new ElForm(controller,parentElbind);
     return null;
 })
-
+ElForm.prototype.bind = function(opts)
+{
+    Elbind.prototype.bind.bind(this)(opts);
+    this.updateValiphores();
+}
 ElForm.prototype.setValidationRoundCallback = function(elem,cb)
 {
     this.validationRoundCallbacks[elem] = cb;
@@ -47,6 +51,11 @@ ElForm.prototype.updateModel =  function(el,model,value,more)
 {
     Elbind.prototype.updateModel.bind(this)(el,model,value,more)
    
+}
+ElForm.prototype.updateValiphores = function()
+{
+    if(this.scope.valiphores)
+       this.scope.valiphores.forEach(v=>v.update());
 }
 ElForm.prototype.fireValidationRoundCallbacks = function()
 {
@@ -57,6 +66,7 @@ ElForm.prototype.fireValidationRoundCallbacks = function()
         let vrc = vrcs[key];
         vrc.bind(this)();
     }
+   this.updateValiphores();
 }
 
 ElForm.prototype.getOrCreateField = function(field)

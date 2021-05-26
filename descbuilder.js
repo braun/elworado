@@ -13,7 +13,9 @@ class DescBuilder
         Object.assign(this.opts,opts);
         this.buildUp = "";
     }
-
+    get isEmpty() {
+        return this.buildUp.length == 0
+    }
     reset(val)
     {
         if(val == null)

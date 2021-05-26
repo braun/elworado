@@ -58,7 +58,26 @@ var httpGet = function(url,callback,tryCache,options)
     }
    
  }
-
+function doHttpRequest(url,options)
+{
+  var promise = new Promise((resolve,reject)=>
+  {
+    httpGet(url,function(data,xhr,exception)
+    {
+      if(data != null)
+        resolve(data);
+      else
+      {
+        if(exception)
+          console.error("doHttpRequest for "+url+"failed with exception",exception);
+        else
+          console.error("doHttpRequest for "+url+" failed, status=",xhr.status);
+        reject({ xhr:xhr,exception:exception});  
+      }
+    },false,options);
+  })
+  return promise;
+}
   function renderUrlTemplate(url,model)
   {
     var promise = new Promise(function(resolve,reject)
@@ -113,3 +132,5 @@ var httpGet = function(url,callback,tryCache,options)
   }
   window.httpGetPromise = httpGetPromise;
   window.httpGet = httpGet;
+  window.doHttpRequest = doHttpRequest;
+
