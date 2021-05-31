@@ -816,7 +816,7 @@ Elbind.prototype.bind = function (opts) {
         var subEl = this.subs[i];
         if (subEl.elbind == null) {
             var scope = this.scope;
-            this.trySetId(el);
+            this.trySetId(subEl);
             var subc = subEl.getAttribute("elcontroller");
             var controller = elbind.findController(subc);
 

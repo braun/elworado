@@ -88,7 +88,7 @@ class DescBuilder
     add(val)
     {
         if(val == null)
-            return;
+            return  this;
         this._putSeparator(val);
         this.buildUp += val;
         return this;
