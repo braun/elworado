@@ -8,14 +8,51 @@ class DescBuilder
         this.opts = 
         {
             separator:", ",
-            arraySeparator:" "
+            arraySeparator:" ",
+            defaultStyle:"text",
+            defaultStackStyle:"stack"
         }
         Object.assign(this.opts,opts);
         this.buildUp = "";
+        this.structure = [];
+        this.curstack = this.structure;
+        this.stack = [];
     }
     get isEmpty() {
         return this.buildUp.length == 0
     }
+
+    push(style,opts)
+    {
+        style = style||this.opts.defaultStackStyle;
+        if(!Array.isArray(style))
+            style = [style];
+        opts = opts||{};
+        const stackn = []
+        this.curstack.push({stack:stackn,style:style,opts:opts});
+        this.stack.push(this.curstack);
+        this.curstack = stackn;
+        return this;
+    }
+    pop()
+    {
+        if(this.stack.length > 0)
+            this.curstack = this.stack.pop();
+           
+        return this;
+    }
+
+    par(style,opts)
+    {  
+        style = style||this.opts.defaultStyle;
+        if(!Array.isArray(style))
+            style = [style];
+        opts = opts||{};
+           
+        this.curstack.push({text:this.buildUp(),style:style,opts:opts})
+        this.reset();
+    }
+
     reset(val)
     {
         if(val == null)
@@ -59,6 +96,18 @@ class DescBuilder
         this.desc(v,prefix,opts,suffix);
         return this;
    }
+   decode(code,arr,prefix,opts,suffix)
+   {
+       if(code == null || arr == null || arr.length <= code)
+        return this;
+    
+       var it = arr[code];
+       if(typeof it == "function")
+            it = it(this);
+
+        this.desc(it,prefix,opts,suffix);
+        return this;
+   }
    descEach(arr,describeFunc)
    {
        arr.forEach(v=>describeFunc.bind(this)(v,this));
@@ -97,6 +146,27 @@ class DescBuilder
     build()
     {
         return this.buildUp;
+    }
+    struct()
+    {
+        if(this.buildUp.length > 0)
+            this.par();
+        return this.struct();
+    }
+    transform(transformerCb,initv,stack)
+    {
+        stack = stack || this.structure;
+        const rv = stack.reduce((prev,cur,idx,arr)=>
+        {
+        
+                var tmprv = transformerCb(prev,cur,idx,arr)
+                if(cur.stack)
+                    tmprv = this.transform(transformerCb,tmprv,cur.stack);
+                 tmprv = transformerCb(prev,cur,idx,arr)
+                return tmprv;
+
+        },initv);
+        return rv;
     }
     _putSeparator(s)
     {
