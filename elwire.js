@@ -467,6 +467,7 @@ Elbind.prototype.wire = function()
                             {
                                 model = el.getAttribute("elmodel"); 
                                 var val = event.target.type ==="checkbox" ? event.target.checked : event.target.value;
+                             
                                 thiselbind.onInputChanged(el,model,val,event);
                             } );
                         }
@@ -482,6 +483,8 @@ Elbind.prototype.wire = function()
                   
                     function doaction(event) {
                         event.preventDefault();
+                        event.stopPropagation();
+                        event.stopImmediatePropagation();
                        if(scope._onElAction != null)
                             scope._onElAction(event);
                         scope.elbind.eleval(elaction,el,{event:event,ignoreSecPas:true});
@@ -1022,7 +1025,7 @@ Elbind.prototype.updateModelAssign = function(el,model,value,more)
  * @param model {string} locating model value in scope
  * @param value value to be set
  */
-Elbind.prototype.updateModel = function(el,model,value,more)
+Elbind.prototype.updateModel = function(el,model,value,event)
 {
     //console.warn("elbind.updateModel:" +namel(this.element),new Error());
     var wmodel  = model.startsWith("scope.") ? model.replace("scope.","") : model;
@@ -1031,9 +1034,25 @@ Elbind.prototype.updateModel = function(el,model,value,more)
    
     var scope = this.scope;
     var thiselbind = this;
-    if(value == null)
+    if(value == null && event != null)
         value = event.target.value.replace("\n","")
         try {
+            if(el.type ==="number")
+            {
+                if(event && event.data == "-")
+                {
+                    this.negativeset =true;
+                    if(value == "" && oldval  != null && oldval != "")
+                    {
+                        value = -parseFloat(oldval);
+                        delete this.negativeset
+                    }
+                } else
+                if(this.negativeset){
+                    value = -parseFloat(value);
+                    delete this.negativeset
+                }
+            }
              var pars = thiselbind.buildPars(el,[oldval,value]);
             if(el.hasOwnProperty("_modelFunction") && !el._justAssign)            
                 el._modelFunction.apply(scope,pars);                                   
