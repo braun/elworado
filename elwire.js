@@ -1019,6 +1019,16 @@ Elbind.prototype.updateModelAssign = function(el,model,value,more)
     this.updateModel(el,model,value,more);
     delete el._justAssign;
 }
+Elbind.prototype.postRebind = function()
+{
+    if(this.timeout)
+        window.clearTimeout(this.timeout);
+    this.timeout = window.setTimeout(
+        ()=>{
+            this.timeout = null;
+            this.bind();
+        },100);
+}
 /**
  * Update model 
  * @param el element causing the update (editor of value)
