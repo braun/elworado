@@ -1417,7 +1417,7 @@ function ElMount(element,app,opts)
         this.opts = {};
 }
 
-ElMount.prototype.overlay = function(templateUrl,controller,parentElbind)
+ElMount.prototype.overlay = function(templateUrl,controller,parentElbind,pscope)
 {
     var controller = parentElbind == null ? Elbind.findController(controller): parentElbind.findController(controller)
     var elmount = this;
@@ -1478,7 +1478,8 @@ ElMount.prototype.overlay = function(templateUrl,controller,parentElbind)
                     }
                     controller(scope);
                 },parentElbind);
-               
+                if(pscope)
+                   elbind.scope = Object.create(pscope)
                 elbind.attach(this.element);
             //  this.element.elbind.parentElbind.addSub( this.element);
                 this.element.elbind.parentElbind.bind();

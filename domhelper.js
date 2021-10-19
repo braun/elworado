@@ -234,4 +234,25 @@ function appendToBody(element)
         }
     }
 }
+function sortFactory(prop,opts) {
+    var defopts = {
+        "desc":false
+    };
+    opts = Object.assign(defopts,opts);
+    return function(a,b){ 
+        var v1 = a[prop];
+        var v2 = b[prop];
+        if(v1 == null && v2 == null)
+            return 0;
+        if(v1 == null)
+            return -1;
+        if(v2 == null)
+            return -2;
+        const cmp = a[prop].localeCompare(b[prop]); 
+        if(opts.desc)
+            return 0-cmp;
+        else
+            return cmp;
+    };
+ }
 
