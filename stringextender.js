@@ -169,7 +169,7 @@ String.condense = function(str)
     var s = "";
     s = s+str;
     s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    s= s.replace(/[^0-9a-zA-Z]/g, '') 
+    s= s.replace(/[^0-9a-zA-Z_]/g, '') 
     return s;   
 }
 function describeValue(val,prefix,opts,suffix)
