@@ -52,15 +52,29 @@ ElForm.prototype.updateModel =  function(el,model,value,more)
     Elbind.prototype.updateModel.bind(this)(el,model,value,more)
    
 }
+
+ElForm.prototype.resetValidators = function()
+{
+    if(!this.ajsValidators)
+        return;
+    for(let nm in this.ajsValidators) {
+        let v = this.ajsValidators[nm];
+        v.lastResult = null;
+    }
+}
 ElForm.prototype.updateValiphores = function()
 {
     if(this.scope.valiphores)
        this.scope.valiphores.forEach(v=>v.update());
 }
+ElForm.prototype.clearValidationRoundCallbacks = function()
+{
+    this.validationRoundCallbacks = {};
+}
 ElForm.prototype.fireValidationRoundCallbacks = function()
 {
      var vrcs = this.validationRoundCallbacks;
-    this.validationRoundCallbacks = {};
+  this.clearValidationRoundCallbacks();
     for(var key in vrcs)
     {
         let vrc = vrcs[key];
