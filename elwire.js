@@ -1183,6 +1183,7 @@ Elbind.prototype.onUnmount = function()
      {
         this.subs.forEach(sub=>
         {
+            if(sub.elbind)
             sub.elbind.onUnmount();
         });
     }
