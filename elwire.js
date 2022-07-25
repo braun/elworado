@@ -590,6 +590,7 @@ Elbind.prototype.trySetId = function(el)
     {
         var id =this.eleval(ida,el,null); 
         el.id = id+"_"+(elidKeySequence++);
+        el.setAttribute("oid", id);
         el._elid = id
         this.scope[id] = el;
     }  
