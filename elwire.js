@@ -1402,7 +1402,7 @@ var elem = document.documentElement;
 
 ElApp.prototype.onResize = function()
 {
-    if(this.scope.onResize)
+    if(this.scope && this.scope.onResize)
         this.scope.onResize();
 }
 Object.assign(ElApp.prototype, Elbind.prototype);
